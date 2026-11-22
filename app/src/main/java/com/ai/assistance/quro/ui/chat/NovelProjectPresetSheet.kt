@@ -1,8 +1,11 @@
 package com.ai.assistance.quro.ui.chat
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Description
@@ -21,8 +25,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ai.assistance.quro.data.repository.SkillRepository
+import com.ai.assistance.quro.data.repository.findGenreSkills
+import com.ai.assistance.quro.ui.theme.ChatColors
 
 /** 开新书默认落在小说挂载目录下，和技能模板里的 `/var/minis/mounts/小说` 约定一致。 */
 private const val NOVEL_PROJECT_ROOT = "/var/minis/mounts/小说"
@@ -46,7 +54,13 @@ private const val NOVEL_PROJECT_ROOT = "/var/minis/mounts/小说"
  *
  * 外壳用 [StandardChatSheet]；系统返回键在非首步时回到上一步，首步才关闭面板。
  *
- * @param onCreate 用户点「创建」时回调，参数依次为预设技能 id 与表单内容。
+ * [T-novel-genre-skill-match] 流派输入框是自由文本，但 App 内置了 25 个流派技能。
+ * 这里把用户输入实时匹配成候选（见 [findGenreSkills]）：唯一命中就自动选中，
+ * 多个命中给 chip 让用户点一个，选中后点「创建」会把该流派技能启用并写进指令，
+ * AI 写作时才会带上这个流派的规约。
+ *
+ * @param onCreate 用户点「创建」时回调。前 6 个参数依次为预设技能 id 与表单内容，
+ *   后两个是选中的流派技能（id、中文显示名）；没选中流派技能时两者都为 null。
  * @param onOpenFolder 打开指定 Linux 目录的文件浏览器（可缺省，缺省时回执页自动隐藏该按钮）。
  * @param presets 可选的预设技能；调用方从 SkillRepository 取快照传进来。
  */
@@ -60,6 +74,8 @@ fun NovelProjectPresetSheet(
         platform: String,
         hero: String,
         targetDir: String,
+        genreSkillId: String?,
+        genreSkillName: String?,
     ) -> Unit,
     onOpenFolder: ((String) -> Unit)? = null,
     presets: List<SkillRepository.Skill> = emptyList(),
@@ -68,6 +84,9 @@ fun NovelProjectPresetSheet(
     // 也是 novel- 开头，会被误列成「新建小说项目」的预设。
     // 按名字排一遍，保证每次打开顺序一致（仓库里 skills 的顺序随安装时间变）。
     val novelPresets = presets.filter { it.id == "novel-project" }.sortedBy { it.name }
+
+    // 流派技能候选只给"库里已经装好"的那些：否则点了也启用不了，指令里却写着"已启用"。
+    val installedSkillIds = remember(presets) { presets.map { it.id }.toSet() }
 
     // 0 = 选预设，1 = 填表，2 = 已生成指令
     var step by remember { mutableStateOf(0) }
@@ -80,6 +99,19 @@ fun NovelProjectPresetSheet(
     var targetDir by remember { mutableStateOf("$NOVEL_PROJECT_ROOT/") }
     // 用户自己动过目录就不再跟着书名同步，避免覆盖手工填写。
     var targetDirEdited by remember { mutableStateOf(false) }
+    // 用户选中的流派技能 id（null = 没选）。
+    var selectedGenreSkillId by remember { mutableStateOf<String?>(null) }
+
+    // 流派 → 流派技能 的实时候选（最多 8 个）。
+    val genreCandidates = remember(genre, installedSkillIds) {
+        findGenreSkills(genre).filter { (id, _) -> id in installedSkillIds }
+    }
+    // 只有一个命中时直接认定；用户手选过的，只要它还在候选里就保持选中。
+    LaunchedEffect(genreCandidates) {
+        if (genreCandidates.size == 1) selectedGenreSkillId = genreCandidates[0].first
+    }
+    val activeGenreSkillId = selectedGenreSkillId
+        ?.takeIf { id -> genreCandidates.any { it.first == id } }
 
     val sheetTitle = when (step) {
         1 -> "填写开书信息"
@@ -113,6 +145,9 @@ fun NovelProjectPresetSheet(
                 presetName = picked?.name.orEmpty(),
                 title = title,
                 genre = genre,
+                genreCandidates = genreCandidates,
+                selectedGenreSkillId = activeGenreSkillId,
+                onSelectGenreSkill = { id -> selectedGenreSkillId = id },
                 platform = platform,
                 hero = hero,
                 targetDir = targetDir,
@@ -141,6 +176,8 @@ fun NovelProjectPresetSheet(
                 onCreate = {
                     val skillId = picked?.id
                     if (skillId != null) {
+                        val genreId = activeGenreSkillId
+                        val genreName = genreCandidates.firstOrNull { it.first == genreId }?.second
                         onCreate(
                             skillId,
                             title.trim(),
@@ -148,6 +185,8 @@ fun NovelProjectPresetSheet(
                             platform.trim(),
                             hero.trim(),
                             targetDir.trim(),
+                            genreId,
+                            genreName,
                         )
                         step = 2
                     }
@@ -158,6 +197,8 @@ fun NovelProjectPresetSheet(
                 presetName = picked?.name.orEmpty(),
                 title = title.trim(),
                 targetDir = targetDir.trim(),
+                genreSkillName = genreCandidates
+                    .firstOrNull { it.first == activeGenreSkillId }?.second,
                 onOpenFolder = onOpenFolder,
                 onDismiss = onDismiss,
             )
@@ -206,6 +247,9 @@ private fun NovelProjectForm(
     presetName: String,
     title: String,
     genre: String,
+    genreCandidates: List<Pair<String, String>>,
+    selectedGenreSkillId: String?,
+    onSelectGenreSkill: (String) -> Unit,
     platform: String,
     hero: String,
     targetDir: String,
@@ -246,6 +290,29 @@ private fun NovelProjectForm(
                 placeholder = "都市修真 / 玄幻 / 悬疑…",
                 modifier = Modifier.padding(top = 10.dp),
             )
+            // [T-novel-genre-skill-match] 流派 → 内置流派技能：唯一命中自动选中，
+            // 多个命中给 chip 让用户挑；没命中只提示，不拦着不让开书。
+            when {
+                genreCandidates.size == 1 -> Text(
+                    text = "已匹配：${genreCandidates[0].second}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ChatColors.primaryText,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+
+                genreCandidates.size > 1 -> GenreSkillChips(
+                    candidates = genreCandidates,
+                    selectedId = selectedGenreSkillId,
+                    onSelect = onSelectGenreSkill,
+                )
+
+                genre.isNotBlank() -> Text(
+                    text = "未匹配到内置流派技能，将按通用规则执行",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
             NovelFormField(
                 value = platform,
                 onValueChange = onPlatformChange,
@@ -288,11 +355,70 @@ private fun NovelProjectForm(
     }
 }
 
+/**
+ * [T-novel-genre-skill-match] 流派技能候选 chip 行：最多 8 个，选中的高亮。
+ *
+ * 用 FlowRow 自动换行（项目里 chat 侧已在用 FlowRow，需要 ExperimentalLayoutApi opt-in）。
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GenreSkillChips(
+    candidates: List<Pair<String, String>>,
+    selectedId: String?,
+    onSelect: (String) -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        for ((id, name) in candidates) {
+            GenreSkillChip(
+                label = name,
+                selected = id == selectedId,
+                onClick = { onSelect(id) },
+            )
+        }
+    }
+}
+
+/**
+ * 单个流派技能 chip。选中态用深色底（[ChatColors.sendButton]）反白，
+ * 未选中用 [ChatColors.toolBg] + [ChatColors.toolBorder] —— 与聊天页其它胶囊
+ * 保持同一套配色，不动 MaterialTheme 的 primary（那套是品牌蓝，聊天页刻意不用）。
+ */
+@Composable
+private fun GenreSkillChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) ChatColors.sendButton else ChatColors.toolBg,
+        border = BorderStroke(
+            1.dp,
+            if (selected) ChatColors.sendButton else ChatColors.toolBorder,
+        ),
+        modifier = Modifier.clickable(onClick = onClick),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (selected) ChatColors.background else ChatColors.primaryText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+        )
+    }
+}
+
 @Composable
 private fun NovelProjectDone(
     presetName: String,
     title: String,
     targetDir: String,
+    genreSkillName: String?,
     onOpenFolder: ((String) -> Unit)?,
     onDismiss: () -> Unit,
 ) {
@@ -334,6 +460,14 @@ private fun NovelProjectDone(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )
+            if (genreSkillName != null) {
+                Text(
+                    text = "流派技能：$genreSkillName（已启用，写作时生效）",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
             if (onOpenFolder != null) {
                 Text(
                     text = "AI 建好后可点下面的按钮直接打开这个目录。",

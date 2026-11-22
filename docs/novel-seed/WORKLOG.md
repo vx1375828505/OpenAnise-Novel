@@ -85,3 +85,9 @@ B1 播种器 id/name、B2 目录名、id_map.json 三者 25 项逐项完全一�
 - **关键限制发现**：App 的 importFromGitHub 逐文件调 api.github.com，匿名额度 60 次/小时；113 个文件必然超限 → URL 导入会残缺。故上传 zip，走"下载 zip → App zip 导入"路线。
 - 推送前清理了 10 个带真实角色名的孤儿重复文件（045_凤舞_支线.md 等），门牌引用的是 045_支线_角色1.md 那套。
 - 隐私提醒已告知用户：仓库公开，可随时删除。
+
+## 06:02 技能播种代码归位：app 源码是唯一事实源
+- docs/novel-seed/kotlin/ 下的 SeedNovelSkills.kt / NovelSkillGuard.kt / SeedNovelSkillsTest.kt 三份副本已删除。
+- 唯一事实源：app/src/main/java/com/ai/assistance/quro/data/repository/SeedNovelSkills.kt（提交 c6e1e84 移入；
+  流派→技能匹配入口 findGenreSkills 也在这个文件里），单测在 app/src/test/java/com/ai/assistance/quro/data/repository/SeedNovelSkillsTest.kt。
+- 以后改播种逻辑只改 app 源码这两份；docs/novel-seed/ 下的 .md/.json 保留为移植过程的审计留痕，不再放代码副本。

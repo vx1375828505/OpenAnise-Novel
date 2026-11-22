@@ -144,6 +144,62 @@ internal object NovelSkillPack {
 }
 
 /**
+ * [T-novel-genre-skill-match] 流派候选上限：命中太多时只给前 N 个。
+ */
+internal const val MAX_GENRE_SKILL_SUGGESTIONS = 8
+
+/**
+ * [T-novel-genre-skill-match] 归一化时丢掉的分隔符：显示名里的间隔点（中点 U+00B7、
+ * 顿点 U+30FB）、斜杠、连字符、括号等。归一化后再比对，避免用户写"都市/赘婿"这种
+ * 写法匹配不到。
+ */
+private const val GENRE_QUERY_SEPARATORS = "·・、，,。·-_—–|/\\~～「」『』（）()【】[]《》"
+
+ /**
+ * [T-novel-genre-skill-match] 归一化用户输入与技能显示名：
+ * 全角 ASCII → 半角、去空白、去分隔符、统一小写（让 "无cp" 能命中 "无CP大女主"）。
+ */
+internal fun normalizeGenreQuery(raw: String): String {
+    val sb = StringBuilder(raw.length)
+    for (ch in raw) {
+        var c = ch
+        // 全角 ASCII（！～）→ 半角；全角空格由 isWhitespace 覆盖。
+        if (c.code in 0xFF01..0xFF5E) c = (c.code - 0xFEE0).toChar()
+        if (c.isWhitespace()) continue
+        if (GENRE_QUERY_SEPARATORS.indexOf(c) >= 0) continue
+        sb.append(c)
+    }
+    return sb.toString().lowercase()
+}
+
+/**
+ * [T-novel-genre-skill-match] 按用户填的流派名匹配内置流派技能。
+ *
+ * 规则（按顺序判定，命中即收，候选保持 [NovelSkillPack.GENRE_ENTRIES] 的原顺序，
+ * 最多返回 [MAX_GENRE_SKILL_SUGGESTIONS] 个）：
+ *  1. 中文名 `·` **之前**的段（"都市赘婿·隐忍爆发" → "都市赘婿"）startsWith(query) 或 contains(query)；
+ *  2. 完整中文名（去分隔符后，如 "都市赘婿隐忍爆发"）contains(query)。
+ *
+ * query 为空 → 空列表。不做拼音匹配：用户打的是中文。
+ *
+ * @return (技能 id, 中文显示名) 列表，id 可直接喂给 SkillRepository.setEnabled。
+ */
+internal fun findGenreSkills(query: String): List<Pair<String, String>> {
+    val q = normalizeGenreQuery(query)
+    if (q.isEmpty()) return emptyList()
+    val out = ArrayList<Pair<String, String>>(MAX_GENRE_SKILL_SUGGESTIONS)
+    for (entry in NovelSkillPack.GENRE_ENTRIES) {
+        if (out.size >= MAX_GENRE_SKILL_SUGGESTIONS) break
+        val head = normalizeGenreQuery(entry.name.substringBefore('·'))
+        val full = normalizeGenreQuery(entry.name)
+        if (head.startsWith(q) || head.contains(q) || full.contains(q)) {
+            out.add(entry.id to entry.name)
+        }
+    }
+    return out
+}
+
+/**
  * 播种器与 SkillRepository 的桥接。[insert] 的实现必须是
  * `insertDb(skill); writeSkillMd(skill); mutateSkills { it + skill }`，
  * 即方案 §4.5 的手写通道，绕开 `add()` 的 slugify。

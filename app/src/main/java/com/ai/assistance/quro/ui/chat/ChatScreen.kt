@@ -8299,10 +8299,18 @@ fun ChatScreen(
     // [T-novel-project-entry] 新建小说项目：选预设 + 填表后拼成完整指令写进输入框，
     // 让 AI 直接出清单，不再反问用户刚刚已经填过的书名/流派/平台。
     if (showNovelProjectSheet && skillRepository != null) {
-        val novelPresets by skillRepository.skills.collectAsState()
+        val repo = skillRepository
+        val novelPresets by repo.skills.collectAsState()
         NovelProjectPresetSheet(
             onDismiss = { showNovelProjectSheet = false },
-            onCreate = { skillId, title, genre, platform, hero, targetDir ->
+            onCreate = { skillId, title, genre, platform, hero, targetDir,
+                genreSkillId, genreSkillName ->
+                // [T-novel-genre-skill-match] 用户在面板里选中了内置流派技能：
+                // 先把它启用（setEnabled 走既有通路，is_enabled 落库，重启后仍然是开的），
+                // 否则技能虽然存在但默认关闭，AI 拿不到这个流派的规约。
+                if (genreSkillId != null) {
+                    repo.setEnabled(genreSkillId, true)
+                }
                 val instruction = buildString {
                     append("用 /").append(skillId).append(" 预设开新书。\n")
                     append("书名：《").append(title).append("》\n")
@@ -8310,6 +8318,13 @@ fun ChatScreen(
                     append("平台：").append(platform.ifBlank { "未定" }).append("\n")
                     append("男主：").append(hero.ifBlank { "未定" }).append("\n")
                     append("目标目录：").append(targetDir).append("\n")
+                    if (genreSkillId != null && genreSkillName != null) {
+                        append("本流派技能：").append(genreSkillName)
+                            .append("（id=").append(genreSkillId).append("，已启用）。")
+                            .append("写作前必须先读该技能的 SKILL.md 并遵守其规则。\n")
+                    } else {
+                        append("本项目未指定流派技能；若技能库里有已启用的流派技能，先读它再动笔。\n")
+                    }
                     append("\n")
                     append("请直接出建库清单（目录 + 关键文件 + 目标路径）用 user_ask(confirm) 等我确认；")
                     append("确认后用 scripts/init_project.py 一次建好，再报“还需手工填哪些占位符”。")
