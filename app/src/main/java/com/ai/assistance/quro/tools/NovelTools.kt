@@ -211,20 +211,94 @@ object NovelTools {
         )
     }
 
+    /**
+     * 规则子目录白名单：只有这些目录里的 .md 算「规则」。
+     * `剧情记忆`（019_当前卷 / 020_人物状态总表）是**状态**，`词造数据库`（热梗 / 桥段 / 参考手法）
+     * 是**素材**——把它们当规则返回，等于让 AI 拿状态或词条去改稿，是实质性的错。
+     * `禁则` / `逻辑判断` 是用户真实库里可能存在的历史目录，保留兼容。
+     */
+    private val RULE_DIR_WHITELIST = listOf("写文规则", "文章精修规则", "禁则", "逻辑判断")
+
+    /** 明确排除的子目录（状态 / 素材）：无论白名单怎么配都不许命中。 */
+    private val RULE_DIR_EXCLUDED = setOf("剧情记忆", "词造数据库")
+
     private fun readRule(args: JSONObject, project: File, toolTitle: String): ToolExecutionResult {
         val ruleName = args.optString("rule_name", "").trim()
         if (ruleName.isBlank()) return ToolExecutionResult("Error: rule 需要 rule_name 参数", false, toolTitle = toolTitle)
         val ruleDir = resolveDir(project, RULE_DIR)
-        // 规则子目录不写死：把 ruleDir 下真实存在的子目录都试一遍，
-        // 模板换布局（写文规则 / 文章精修规则 / 词造数据库 / 剧情记忆…）也不会漏。
-        val candidates = mutableListOf(File(ruleDir, ruleName))
-        runCatching {
-            ruleDir.listFiles()?.filter { it.isDirectory }?.forEach { candidates.add(File(it, ruleName)) }
+        val searchDirs = ruleSearchDirs(ruleDir)
+
+        // 1) 精确匹配：ruleDir 顶层 + 规则目录下的同名文件
+        val exact = mutableListOf<File>()
+        val top = File(ruleDir, ruleName)
+        if (top.isFile) exact.add(top)
+        for (d in searchDirs) {
+            val f = File(d, ruleName)
+            if (f.isFile) exact.add(f)
         }
-        val found = candidates.firstOrNull { it.isFile }
-            ?: runCatching { ruleDir.walkTopDown().firstOrNull { it.isFile && it.name == ruleName } }.getOrNull()
-            ?: return ToolExecutionResult("Error: 找不到规则 '$ruleName'。可在 $RULE_DIR/ 或其子目录中查找。", false, toolTitle = toolTitle)
-        return ToolExecutionResult(found.readText(), true, toolTitle = toolTitle)
+        if (exact.isNotEmpty()) {
+            return ToolExecutionResult(exact.first().readText(), true, toolTitle = toolTitle)
+        }
+
+        // 2) 归一化前缀匹配：文件名带全角括号说明（015_规则.3a（写法总纲）.md）时，
+        //    用户多半只打 `015` 或 `015_规则.3a`——去括号后按前缀比，
+        //    `015` 要同时命中 3a 与 3i 两条，两条都列出来让用户选，不替他挑一条。
+        val needle = normalizeRuleName(ruleName)
+        val fuzzy = mutableListOf<File>()
+        for (d in searchDirs) {
+            runCatching {
+                d.walkTopDown()
+                    .filter { it.isFile && it.extension.equals("md", ignoreCase = true) }
+                    .filter { normalizeRuleName(it.name).startsWith(needle) }
+                    .forEach { hit -> if (fuzzy.none { it.absolutePath == hit.absolutePath }) fuzzy.add(hit) }
+            }
+        }
+        if (fuzzy.size == 1) {
+            return ToolExecutionResult(fuzzy[0].readText(), true, toolTitle = toolTitle)
+        }
+        if (fuzzy.size > 1) {
+            val list = fuzzy.joinToString("\n") { "- ${ruleRelPath(ruleDir, it)}" }
+            return ToolExecutionResult(
+                "Error: 规则名 '$ruleName' 有歧义，命中 ${fuzzy.size} 条，请指定完整文件名再取：\n$list\n" +
+                    "（用 rule_name=<完整文件名> 重新调用即可拿到其中一份原文。）",
+                false, toolTitle = toolTitle,
+            )
+        }
+        return ToolExecutionResult("Error: 找不到规则 '$ruleName'。可在 $RULE_DIR/ 或其子目录中查找。", false, toolTitle = toolTitle)
+    }
+
+    /**
+     * 规则检索目录：优先白名单目录（写文规则 / 文章精修规则 / 禁则 / 逻辑判断）；
+     * 项目里一个白名单目录都没有时（老库结构不同），退化为「非排除目录」的子目录，
+     * 但 `剧情记忆` / `词造数据库` 仍然排除。
+     */
+    private fun ruleSearchDirs(ruleDir: File): List<File> {
+        val dirs = runCatching {
+            ruleDir.listFiles()?.filter { it.isDirectory }?.toList()
+        }.getOrNull().orEmpty()
+        val whitelist = dirs.filter { it.name in RULE_DIR_WHITELIST }
+        if (whitelist.isNotEmpty()) return whitelist
+        return dirs.filter { it.name !in RULE_DIR_EXCLUDED }
+    }
+
+    /** 规则名归一化：去掉全角括号说明与 .md 后缀（015_规则.3a（写法总纲）.md → 015_规则.3a）。 */
+    private fun normalizeRuleName(name: String): String {
+        var s = name.trim()
+        val open = s.indexOf("（")
+        if (open >= 0) {
+            val close = s.indexOf("）", open)
+            s = if (close > open) s.substring(0, open) + s.substring(close + 1) else s.substring(0, open)
+        }
+        if (s.endsWith(".md", ignoreCase = true)) s = s.substring(0, s.length - 3)
+        return s.trim()
+    }
+
+    /** 候选规则相对 ruleDir 的路径（给用户看清楚是哪几条）。 */
+    private fun ruleRelPath(ruleDir: File, f: File): String {
+        val rootAbs = ruleDir.absolutePath
+        val abs = f.absolutePath
+        val rel = if (abs.startsWith("$rootAbs${File.separator}")) abs.substring(rootAbs.length + 1) else f.name
+        return rel.replace(File.separatorChar, '/')
     }
 
     private fun backupChapter(args: JSONObject, project: File, toolTitle: String): ToolExecutionResult {
