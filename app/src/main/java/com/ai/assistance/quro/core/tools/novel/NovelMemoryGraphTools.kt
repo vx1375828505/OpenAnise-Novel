@@ -217,7 +217,8 @@ object NovelMemoryTextTool {
             "取十节记忆快照（文本轨）：作品信息 / 卷章结构 / 最近章节 / 角色 / 设定 / 地点 / 势力 / 道具 / 伏笔 / 参考资料，" +
                 "一次调用拿到全书现状（结果有 5 分钟缓存）。" +
                 "何时用：写新章前一次性对齐世界观与进度；用户问「这本书现在什么情况」。" +
-                "细粒度检索用 novel_memory_query，图谱视图用 novel_memory_graph。",
+                "细粒度检索用 novel_memory_query，图谱视图用 novel_memory_graph。" +
+                "注意：本工具读的是 App 结构化作品库（works.json）。若用户使用纯文本小说库（挂载目录下的 项目中枢/剧情记忆/），请改用 novel_memory_query 读、novel_memory_save 写。",
         parameters = mapOf(
             "tool_title" to AgentToolParam("string", "A concise 5-10 word summary of what this tool call does, shown to the user. Use the same language as the user."),
             "work_id" to AgentToolParam("string", "作品 id（novel_list_works 获取）"),

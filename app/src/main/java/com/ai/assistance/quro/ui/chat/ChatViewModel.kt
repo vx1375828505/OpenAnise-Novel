@@ -66,6 +66,7 @@ import com.ai.assistance.quro.tools.NovelPolishTools
 import com.ai.assistance.quro.core.tools.novel.NovelMemoryGraphTool
 import com.ai.assistance.quro.core.tools.novel.NovelMemoryLinkTool
 import com.ai.assistance.quro.core.tools.novel.NovelMemoryTextTool
+import com.ai.assistance.quro.agent.userask.UserAskSettings
 import com.ai.assistance.quro.agent.userask.WriteConfirmationGate
 import com.ai.assistance.quro.tools.novel.NovelDbMaintenanceTool
 import com.ai.assistance.quro.tools.novel.NovelGraphTools
@@ -14145,7 +14146,12 @@ class ChatViewModel(
 
         // [T-novel-write-gate] 写前确认硬门：本轮没有 user_ask(confirm) 批准过这次写入的
         // 目标路径，写入类工具一律不落盘。提示词能被绕过，调度器不会。
-        WriteConfirmationGate.check(name, argsJson, synchronized(turnApprovals) { turnApprovals.toSet() })?.let {
+        WriteConfirmationGate.check(
+            name,
+            argsJson,
+            synchronized(turnApprovals) { turnApprovals.toSet() },
+            userAskEnabled = UserAskSettings.isEnabled(context),
+        )?.let {
             return ToolExecutionResult(it, false, toolTitle = toolTitle)
         }
 
