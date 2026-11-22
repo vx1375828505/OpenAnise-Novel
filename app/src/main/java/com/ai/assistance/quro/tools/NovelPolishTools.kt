@@ -226,6 +226,15 @@ object NovelPolishTools {
         }
         val raw = NovelEnhanceSupport.readTextOrNull(contentFile)
             ?: return ToolExecutionResult("Error: 读取 content_file 失败: $contentFileArg", false, toolTitle = toolTitle)
+        // 空内容保护：空文件/纯空白文件不落盘（下面 polished.isBlank() 是第二道保险）。
+        if (raw.trim().isEmpty()) {
+            return ToolExecutionResult(
+                "Error: content_file 内容为空（$contentFileArg），未写入 ${chapter.name}——" +
+                    "润色结果不允许是空文件。",
+                false,
+                toolTitle = toolTitle,
+            )
+        }
         val original = NovelEnhanceSupport.readTextOrNull(chapter)
             ?: return ToolExecutionResult("Error: 读取原稿失败：${chapter.name}", false, toolTitle = toolTitle)
         if (original.isBlank()) {

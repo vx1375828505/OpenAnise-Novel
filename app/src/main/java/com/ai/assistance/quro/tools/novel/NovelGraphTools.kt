@@ -142,7 +142,8 @@ object NovelGraphTools {
             )
         }
         val content = args.optString("content", "")
-        if (content.isBlank()) {
+        // 首尾空白去掉后为空也算空：覆盖写会把整份记忆文件清空（数据损坏）。
+        if (content.trim().isEmpty()) {
             return ToolExecutionResult(
                 "Error: content 不能是空白内容（覆盖写会把记忆文件清空；确实要清空请用 file_write）",
                 false, toolTitle = toolTitle,

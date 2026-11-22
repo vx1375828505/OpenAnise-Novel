@@ -59,7 +59,44 @@ object WriteConfirmationGate {
      */
     private val SHELL_WRITE_PATTERNS = listOf(
         ">", ">>", "cp ", "mv ", "rm ", "sed -i", "tee ", "mkdir ", "touch ", "dd ",
-        "chmod ", "chown ", "ln ", "git ",
+        "chmod ", "chown ", "ln ",
+    )
+
+    /**
+     * git 的**变更类**子命令：这些按写操作处理，走 user_ask。
+     * 判定只看子命令名（第一个非 `-`/`--` 开头的词），不用整串 contains——
+     * 整串 contains 会把 `echo "git commit"` 这类误伤，也会把 `git log -p` 里的参数当命令。
+     */
+    private val GIT_MUTATING_SUBCOMMANDS = setOf(
+        "add", "commit", "push", "pull", "fetch", "checkout", "switch", "restore",
+        "reset", "rm", "mv", "clean", "merge", "rebase", "cherry-pick", "revert",
+        "stash", "apply", "tag",
+    )
+
+    /** git 的**只读**子命令：放行（`git status` / `git log` / `git diff` 这类不该要批准）。 */
+    private val GIT_READ_ONLY_SUBCOMMANDS = setOf(
+        "status", "log", "diff", "show", "blame", "describe", "rev-parse", "rev-list",
+        "ls-files", "shortlog", "cat-file", "reflog",
+    )
+
+    /** `git branch` 的改参数（不带这些参数就是纯列举）。 */
+    private val GIT_BRANCH_WRITE_FLAGS = setOf(
+        "-d", "-D", "-m", "-M", "--delete", "--move", "--copy", "--set-upstream",
+    )
+
+    /** `git remote` 的写子命令（纯列举/查看放行）。 */
+    private val GIT_REMOTE_WRITE_SUBCOMMANDS = setOf(
+        "add", "remove", "rm", "rename", "set-url", "prune", "update",
+    )
+
+    /** `git config` 的只读参数（带这些才是查询，其余按写处理）。 */
+    private val GIT_CONFIG_READ_FLAGS = setOf(
+        "--get", "--get-all", "--get-regexp", "--list", "-l",
+    )
+
+    /** 这些 git 全局参数后面跟一个值，取子命令时要把那个值跳过（`git -C /path status`）。 */
+    private val GIT_VALUE_FLAGS = setOf(
+        "-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env",
     )
 
     /** 命令里的绝对路径 token：`/` 开头，到空白或 shell 分隔符为止。 */
@@ -113,7 +150,10 @@ object WriteConfirmationGate {
         if (command.isBlank()) return null
         // 不含写模式 = 纯读命令（ls / cat / grep / find / head / tail / wc / stat / file / tree /
         // pwd / echo 等），放行；有写模式就按写处理——宁可多问一次。
-        if (SHELL_WRITE_PATTERNS.none { command.contains(it) }) return null
+        // git 单独判定：只有变更类子命令才算写，`git status` / `git log` / `git diff` 照常放行。
+        val writePattern = SHELL_WRITE_PATTERNS.any { command.contains(it) }
+        val mutatingGit = isMutatingGitCommand(command)
+        if (!writePattern && !mutatingGit) return null
         val targets = shellTargets(command, argsJson)
         if (targets.isEmpty()) {
             return "命令会写文件，但没有可核对的绝对路径目标。请先用 user_ask(confirm) 说明要写哪个目录，" +
@@ -124,6 +164,51 @@ object WriteConfirmationGate {
         val joined = targets.joinToString("、")
         return "需先通过 user_ask(confirm) 获得批准，未批准不落盘（目标：$joined）"
     }
+
+    /**
+     * git 命令是不是变更类。
+     *
+     * 取 `git` 之后的第一个非 `-`/`--` 开头词作为子命令；带值的全局参数（`-C`/`-c`/`--git-dir`…）
+     * 会跳过它后面的值。`git` 后面没有子命令 → 未知动作，按变更类处理（拒绝，要求补明确命令）。
+     *
+     * 只看子命令名与其必要参数：
+     * - 变更类：add commit push pull fetch checkout switch restore reset rm mv clean merge
+     *   rebase cherry-pick revert stash apply tag，以及带改参数的 branch / 写参数的 config；
+     * - 只读类：status log diff show blame describe rev-parse rev-list ls-files shortlog
+     *   cat-file reflog，纯列举的 branch / remote，`config --get`。
+     */
+    private fun isMutatingGitCommand(command: String): Boolean {
+        val tokens = tokenizeCommand(command)
+        val gitIdx = tokens.indexOfFirst { it == "git" || it.endsWith("/git") }
+        if (gitIdx < 0) return false
+        val args = tokens.drop(gitIdx + 1)
+        var i = 0
+        var sub: String? = null
+        while (i < args.size) {
+            val t = args[i]
+            when {
+                t.startsWith("-") && t in GIT_VALUE_FLAGS -> i += 2
+                t.startsWith("-") -> i += 1
+                else -> { sub = t; i = args.size }
+            }
+        }
+        val name = sub ?: return true // git 后没有子命令：未知动作，按变更类处理
+        val flags = args.filter { it.startsWith("-") }
+        return when (name) {
+            in GIT_READ_ONLY_SUBCOMMANDS -> false
+            "branch" -> flags.any { it in GIT_BRANCH_WRITE_FLAGS }
+            "remote" -> args.any { it in GIT_REMOTE_WRITE_SUBCOMMANDS }
+            "config" -> flags.none { it in GIT_CONFIG_READ_FLAGS } && args.none { it in GIT_CONFIG_READ_FLAGS }
+            in GIT_MUTATING_SUBCOMMANDS -> true
+            else -> true // 未知子命令：fail-closed
+        }
+    }
+
+    /** 命令分词：按空白切，去掉一层引号。 */
+    private fun tokenizeCommand(command: String): List<String> =
+        command.split(Regex("\\s+"))
+            .map { it.trim().trim('"', '\'') }
+            .filter { it.isNotEmpty() }
 
     /** 命令里出现的绝对路径（归一化后去重）；没有则退回参数里的 project_path。 */
     private fun shellTargets(command: String, argsJson: String): List<String> {

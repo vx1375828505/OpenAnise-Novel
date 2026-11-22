@@ -160,6 +160,14 @@ object NovelTools {
             ?: return ToolExecutionResult("Error: Cannot resolve content_file: $contentFileArg", false, toolTitle = toolTitle)
         if (!contentFile.isFile) return ToolExecutionResult("Error: content_file 不存在: $contentFileArg", false, toolTitle = toolTitle)
         val content = contentFile.readText()
+        // 空内容保护：content_file 指向空文件/纯空白文件时会把正文清空（数据损坏）。
+        if (content.trim().isEmpty()) {
+            return ToolExecutionResult(
+                "Error: content_file 内容为空（${contentFileArg}），未写入 ${chapter.name}——" +
+                    "正文不允许被写成空文件。",
+                false, toolTitle = toolTitle,
+            )
+        }
         chapter.writeText(content)
         return ToolExecutionResult("已写入 ${chapter.name}（${content.length} 字符）", true, toolTitle = toolTitle)
     }
