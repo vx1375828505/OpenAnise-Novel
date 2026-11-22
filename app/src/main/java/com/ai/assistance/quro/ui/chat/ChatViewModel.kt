@@ -14180,8 +14180,8 @@ class ChatViewModel(
             NovelMemoryLinkTool.NAME -> NovelMemoryLinkTool.execute(argsJson, fsSessionId, context)
             NovelMemoryGraphTool.NAME -> NovelMemoryGraphTool.execute(argsJson, fsSessionId, context)
             // [T-novel-write-gate] 文本库记忆读写：直接落 project_path 下的项目目录
-            NovelGraphTools.NAME_SAVE -> NovelGraphTools.executeSave(argsJson, context)
-            NovelGraphTools.NAME_QUERY -> NovelGraphTools.executeQuery(argsJson, context)
+            NovelGraphTools.NAME_SAVE -> NovelGraphTools.executeSave(argsJson)
+            NovelGraphTools.NAME_QUERY -> NovelGraphTools.executeQuery(argsJson)
             // T178: pass sessionId + context so read_image routes through
             // resolveSessionHostPath like file_read/write/edit do — without
             // these, the tool consults the global last-writer-wins

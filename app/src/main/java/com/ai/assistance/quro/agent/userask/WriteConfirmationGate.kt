@@ -34,6 +34,16 @@ object WriteConfirmationGate {
     )
 
     /**
+     * 这几个工具是「一个工具多个 action」的复合工具，其中一部分 action 只读；
+     * 只读动作不该被写前确认拦住，否则正常看了一眼项目就被要求批准。
+     * 其余 action（novel_write 的 write/backup、novel_polish 的 apply）照旧要批准。
+     */
+    private val READ_ONLY_ACTIONS = mapOf(
+        "novel_write" to setOf("list", "read", "search", "stats", "rule"),
+        "novel_polish" to setOf("prepare"),
+    )
+
+    /**
      * 返回 null 表示放行；返回字符串表示拒绝，字符串本身就是要回给模型的 reason。
      *
      * @param toolName 即将执行的工具名
@@ -42,6 +52,13 @@ object WriteConfirmationGate {
      */
     fun check(toolName: String, argsJson: String, approvals: Set<String>): String? {
         if (toolName !in WRITE_TOOLS) return null
+        // 只读 action 放行。action 解析不出来（缺参数 / 非法 JSON / 非法值）一律不放行：
+        // 这道门的立场是 fail-closed，宁可多问一次，不可漏放一次写入。
+        val action = runCatching { JSONObject(argsJson).optString("action", "").trim().lowercase() }
+            .getOrNull()?.takeIf { it.isNotEmpty() }
+        READ_ONLY_ACTIONS[toolName]?.let { readOnly ->
+            if (action != null && action in readOnly) return null
+        }
         val path = targetPathOf(argsJson) ?: "无法从参数中解析路径"
         val approved = approvals.any { it.isNotBlank() && (it.contains(path) || path.startsWith(it)) }
         if (approved) return null

@@ -1,6 +1,5 @@
 package com.ai.assistance.quro.tools.novel
 
-import android.content.Context
 import com.ai.assistance.quro.data.model.AgentToolDefinition
 import com.ai.assistance.quro.data.model.AgentToolParam
 import com.ai.assistance.quro.sandbox.PRootKernel
@@ -30,7 +29,7 @@ import java.util.Locale
  * 2. **查询有上限**——超过 [QUERY_LIMIT] 字符截断并指回 `file_read`，避免一次查询把上下文撑爆。
  *
  * 与基座 `NovelTools` 一致的契约：`definition(): AgentToolDefinition` +
- * `execute(argsJson, context): ToolExecutionResult`；不接收 sessionId（目标目录由 project_path
+ * `execute(argsJson): ToolExecutionResult`；不接收 sessionId（目标目录由 project_path
  * 指定，路径经 [PRootKernel.resolveHostPath] 落到宿主文件系统）。所有文件 IO 都包在
  * `runCatching` 里，失败返回错误结果而不是抛异常。
  */
@@ -116,7 +115,7 @@ object NovelGraphTools {
      * 失败三种都已落成错误结果（不抛异常）：参数不全 / 项目目录不存在 / 备份失败 / 写入失败。
      * 备份失败是**中止**而不是「跳过备份继续写」——备份是这次写入的前置条件。
      */
-    fun executeSave(argsJson: String, context: Context): ToolExecutionResult {
+    fun executeSave(argsJson: String): ToolExecutionResult {
         val args = runCatching { JSONObject(argsJson) }.getOrNull()
             ?: return ToolExecutionResult("Error: 参数必须是合法 JSON", false, toolTitle = NAME_SAVE)
         val toolTitle = args.optString("tool_title", NAME_SAVE).ifBlank { NAME_SAVE }
@@ -199,7 +198,7 @@ object NovelGraphTools {
      * 读取一份记忆：文件不存在不算失败（记忆还没建），返回可自纠正的提示；
      * 超过 [QUERY_LIMIT] 字符截断并指回 `file_read`。
      */
-    fun executeQuery(argsJson: String, context: Context): ToolExecutionResult {
+    fun executeQuery(argsJson: String): ToolExecutionResult {
         val args = runCatching { JSONObject(argsJson) }.getOrNull()
             ?: return ToolExecutionResult("Error: 参数必须是合法 JSON", false, toolTitle = NAME_QUERY)
         val toolTitle = args.optString("tool_title", NAME_QUERY).ifBlank { NAME_QUERY }
