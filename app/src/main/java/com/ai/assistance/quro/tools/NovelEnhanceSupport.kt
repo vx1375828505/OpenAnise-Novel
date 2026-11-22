@@ -116,7 +116,21 @@ internal object NovelEnhanceSupport {
         return out
     }
 
-    private fun isRuleTextFile(f: File): Boolean = f.name.endsWith(".md") || f.name.endsWith(".txt")
+    /**
+     * 规则文本文件判定（`novel_polish action=prepare` 的可注入规则清单与
+     * `novel_write action=rule` 的模糊匹配共用这一份口径）。
+     *
+     * 除了扩展名，还排掉两类**伪规则**：
+     * - 门牌（`000__子路由.md` / `_子路由.md`）：只是指路牌，指去哪、干什么用，不是规则；
+     * - `VALIDATION` 开头的校验报告：它是体检产物，不是规则。
+     * 这两类进了可注入清单，模型会把门牌/体检报告当规则去改稿。
+     */
+    internal fun isRuleTextFile(f: File): Boolean {
+        if (!f.name.endsWith(".md") && !f.name.endsWith(".txt")) return false
+        if (f.name.contains("_子路由")) return false
+        if (f.name.uppercase().startsWith("VALIDATION")) return false
+        return true
+    }
 
     /**
      * 取「数组 / 分隔符字符串」两态参数为字符串列表。

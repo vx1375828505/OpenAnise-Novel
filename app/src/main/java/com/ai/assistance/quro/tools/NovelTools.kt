@@ -248,7 +248,7 @@ object NovelTools {
         for (d in searchDirs) {
             runCatching {
                 d.walkTopDown()
-                    .filter { it.isFile && it.extension.equals("md", ignoreCase = true) }
+                    .filter { it.isFile && NovelEnhanceSupport.isRuleTextFile(it) }
                     .filter { normalizeRuleName(it.name).startsWith(needle) }
                     .forEach { hit -> if (fuzzy.none { it.absolutePath == hit.absolutePath }) fuzzy.add(hit) }
             }
