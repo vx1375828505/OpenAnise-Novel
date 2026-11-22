@@ -1013,7 +1013,7 @@ fun ChatScreen(
     // [T-speed-tier] The "Speed ›" submenu, opened from the chat menu.
     var showSpeedMenu by remember { mutableStateOf(false) }
     var showSkillsSheet by remember { mutableStateOf(false) }
-    // [T-novel-project-entry] 「新建小说项目」预设选择面板。
+    // [T-novel-project-entry] 「新建小说项目」向导（选预设 → 填表 → 生成指令）可见性。
     var showNovelProjectSheet by remember { mutableStateOf(false) }
     // [T-mcp-integration-android] MCPs-in-Session sheet visibility.
     var showMcpsSheet by remember { mutableStateOf(false) }
@@ -3497,7 +3497,7 @@ fun ChatScreen(
                                     MenuItemIcon(Icons.Outlined.Folder)
                                 },
                             )
-                            // [T-novel-project-entry] 新建小说项目：选预设后把开新书指令写进输入框
+                            // [T-novel-project-entry] 新建小说项目：选预设 + 填表后生成完整建库指令
                             if (skillRepository != null) {
                                 DropdownMenuItem(
                                     text = { Text("新建小说项目") },
@@ -8296,17 +8296,29 @@ fun ChatScreen(
         )
     }
 
-    // [T-novel-project-entry] 新建小说项目：选完预设只写输入框，建库仍由技能按模板跑。
+    // [T-novel-project-entry] 新建小说项目：选预设 + 填表后拼成完整指令写进输入框，
+    // 让 AI 直接出清单，不再反问用户刚刚已经填过的书名/流派/平台。
     if (showNovelProjectSheet && skillRepository != null) {
         val novelPresets by skillRepository.skills.collectAsState()
         NovelProjectPresetSheet(
             onDismiss = { showNovelProjectSheet = false },
-            onPick = { skillId ->
-                showNovelProjectSheet = false
+            onCreate = { skillId, title, genre, platform, hero, targetDir ->
                 viewModel.setInputText(
-                    "用 /$skillId 预设开新书，先问我书名/流派/平台/角色名，出清单等我确认",
+                    buildString {
+                        append("用 /").append(skillId).append(" 预设开新书。\n")
+                        append("书名：《").append(title).append("》\n")
+                        append("流派：").append(genre.ifBlank { "未定" }).append("\n")
+                        append("平台：").append(platform.ifBlank { "未定" }).append("\n")
+                        append("男主：").append(hero.ifBlank { "未定" }).append("\n")
+                        append("目标目录：").append(targetDir).append("\n")
+                        append("\n")
+                        append("请直接出建库清单（目录 + 关键文件 + 目标路径）用 user_ask(confirm) 等我确认；")
+                        append("确认后用 scripts/init_project.py 一次建好，再报“还需手工填哪些占位符”。")
+                        append("不要重复问我上面已给的信息。")
+                    },
                 )
             },
+            onOpenFolder = onBrowseChatFolder,
             presets = novelPresets,
         )
     }
