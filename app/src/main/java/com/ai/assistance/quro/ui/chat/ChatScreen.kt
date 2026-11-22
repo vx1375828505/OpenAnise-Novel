@@ -1013,6 +1013,8 @@ fun ChatScreen(
     // [T-speed-tier] The "Speed ›" submenu, opened from the chat menu.
     var showSpeedMenu by remember { mutableStateOf(false) }
     var showSkillsSheet by remember { mutableStateOf(false) }
+    // [T-novel-project-entry] 「新建小说项目」预设选择面板。
+    var showNovelProjectSheet by remember { mutableStateOf(false) }
     // [T-mcp-integration-android] MCPs-in-Session sheet visibility.
     var showMcpsSheet by remember { mutableStateOf(false) }
     var showTokenUsageSheet by remember { mutableStateOf(false) }
@@ -3495,6 +3497,19 @@ fun ChatScreen(
                                     MenuItemIcon(Icons.Outlined.Folder)
                                 },
                             )
+                            // [T-novel-project-entry] 新建小说项目：选预设后把开新书指令写进输入框
+                            if (skillRepository != null) {
+                                DropdownMenuItem(
+                                    text = { Text("新建小说项目") },
+                                    onClick = {
+                                        showChatMenu = false
+                                        showNovelProjectSheet = true
+                                    },
+                                    leadingIcon = {
+                                        MenuItemIcon(Icons.Outlined.CreateNewFolder)
+                                    },
+                                )
+                            }
                             MinisMenuDivider()
                             // Session Skills (iOS parity)
                             if (skillRepository != null) {
@@ -8278,6 +8293,21 @@ fun ChatScreen(
             skillRepository = skillRepository,
             sessionId = sessionId,
             onDismiss = { showSkillsSheet = false },
+        )
+    }
+
+    // [T-novel-project-entry] 新建小说项目：选完预设只写输入框，建库仍由技能按模板跑。
+    if (showNovelProjectSheet && skillRepository != null) {
+        val novelPresets by skillRepository.skills.collectAsState()
+        NovelProjectPresetSheet(
+            onDismiss = { showNovelProjectSheet = false },
+            onPick = { skillId ->
+                showNovelProjectSheet = false
+                viewModel.setInputText(
+                    "用 /$skillId 预设开新书，先问我书名/流派/平台/角色名，出清单等我确认",
+                )
+            },
+            presets = novelPresets,
         )
     }
 
