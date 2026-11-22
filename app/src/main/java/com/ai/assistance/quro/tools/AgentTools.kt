@@ -5,6 +5,7 @@ import com.ai.assistance.quro.data.model.AgentToolDefinition
 import com.ai.assistance.quro.core.tools.novel.NovelMemoryGraphTool
 import com.ai.assistance.quro.core.tools.novel.NovelMemoryLinkTool
 import com.ai.assistance.quro.core.tools.novel.NovelMemoryTextTool
+import com.ai.assistance.quro.tools.novel.NovelGraphTools
 import com.ai.assistance.quro.data.model.AgentToolParam
 import com.ai.assistance.quro.data.model.SubAgentDefinition
 
@@ -67,6 +68,9 @@ object AgentTools {
         add(NovelMemoryTextTool.definition())
         add(NovelMemoryLinkTool.definition())
         add(NovelMemoryGraphTool.definition())
+        // [T-novel-write-gate] 文本库记忆读写：落 /var/minis/mounts 下项目目录的 019/020 两份 md
+        add(NovelGraphTools.saveDefinition())
+        add(NovelGraphTools.queryDefinition())
         if (supportsImageInput || visionGroupConfigured) {
             add(ReadImageTool.definition())
         }

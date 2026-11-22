@@ -66,6 +66,8 @@ import com.ai.assistance.quro.tools.NovelPolishTools
 import com.ai.assistance.quro.core.tools.novel.NovelMemoryGraphTool
 import com.ai.assistance.quro.core.tools.novel.NovelMemoryLinkTool
 import com.ai.assistance.quro.core.tools.novel.NovelMemoryTextTool
+import com.ai.assistance.quro.agent.userask.WriteConfirmationGate
+import com.ai.assistance.quro.tools.novel.NovelGraphTools
 import com.ai.assistance.quro.tools.NovelReviewTools
 import com.ai.assistance.quro.tools.FileReadTool
 import com.ai.assistance.quro.tools.FileWriteTool
@@ -924,6 +926,12 @@ class ChatViewModel(
      */
     @Volatile private var userAskBatchSnapshot: Pair<String, List<String>>? = null
 
+    /**
+     * [T-novel-write-gate] 本轮已获 user_ask(confirm) 批准的条目原文（问题文本）。
+     * [WriteConfirmationGate] 用它判断某次写入的目标路径是否已被批准；每轮开始清空。
+     */
+    private val turnApprovals = mutableSetOf<String>()
+
     /** [T-port-user-ask-recovery] Persistence + recovery hooks; idempotent. */
     private fun ensureUserAskRecovery() {
         com.ai.assistance.quro.agent.userask.UserAskRecoveryCoordinator.ensureInstalled(
@@ -987,6 +995,8 @@ class ChatViewModel(
         userAskExposedThisRun = d.exposed
         userAskDeferredThisRun = d.deferred
         userAskAskedThisRun = false
+        // [T-novel-write-gate] 批准只在当轮有效，不跨轮复用。
+        synchronized(turnApprovals) { turnApprovals.clear() }
         AppLogger.info(TAG, "[UserAsk] exposure=${d.exposed} deferred=${d.deferred} reason=${d.reason} sid=${activeSessionId.take(8)}")
     }
 
@@ -14132,6 +14142,12 @@ class ChatViewModel(
         // bridge, which is now where checkPermission runs.
         val toolTitle = try { JSONObject(argsJson).optString("tool_title", name) } catch (_: Exception) { name }
 
+        // [T-novel-write-gate] 写前确认硬门：本轮没有 user_ask(confirm) 批准过这次写入的
+        // 目标路径，写入类工具一律不落盘。提示词能被绕过，调度器不会。
+        WriteConfirmationGate.check(name, argsJson, synchronized(turnApprovals) { turnApprovals.toSet() })?.let {
+            return ToolExecutionResult(it, false, toolTitle = toolTitle)
+        }
+
         return when (name) {
             FileReadTool.NAME -> {
                 val result = FileReadTool.execute(argsJson, fsSessionId, context)
@@ -14163,6 +14179,9 @@ class ChatViewModel(
             NovelMemoryTextTool.NAME -> NovelMemoryTextTool.execute(argsJson, fsSessionId, context)
             NovelMemoryLinkTool.NAME -> NovelMemoryLinkTool.execute(argsJson, fsSessionId, context)
             NovelMemoryGraphTool.NAME -> NovelMemoryGraphTool.execute(argsJson, fsSessionId, context)
+            // [T-novel-write-gate] 文本库记忆读写：直接落 project_path 下的项目目录
+            NovelGraphTools.NAME_SAVE -> NovelGraphTools.executeSave(argsJson, context)
+            NovelGraphTools.NAME_QUERY -> NovelGraphTools.executeQuery(argsJson, context)
             // T178: pass sessionId + context so read_image routes through
             // resolveSessionHostPath like file_read/write/edit do — without
             // these, the tool consults the global last-writer-wins
@@ -14279,8 +14298,32 @@ class ChatViewModel(
                             ),
                         )
                     },
-                )
+                ).also { recordApprovedConfirmations(argsJson, it.output) }
             else -> ToolExecutionResult("Unknown tool: $name", false)
+        }
+    }
+
+    /**
+     * [T-novel-write-gate] 本轮 user_ask(confirm) 里「已批准」的条目：把问题原文记下来，
+     * 供 [WriteConfirmationGate] 判断某次写入的目标路径是否已被批准。
+     *
+     * 结果 JSON 只有下标（`{"results":[{"i":0,"status":"approved"}]}`），问题文本要按 i
+     * 回原参数里取；deferred 模式没有答案，这里自然什么也不会记。
+     */
+    private fun recordApprovedConfirmations(argsJson: String, resultJson: String) {
+        runCatching {
+            val questions = JSONObject(argsJson).optJSONArray("questions") ?: return@runCatching
+            val results = JSONObject(resultJson).optJSONArray("results") ?: return@runCatching
+            for (i in 0 until results.length()) {
+                val entry = results.optJSONObject(i) ?: continue
+                if (entry.optString("status", "") != "approved") continue
+                val idx = entry.optInt("i", -1)
+                if (idx < 0 || idx >= questions.length()) continue
+                val question = questions.optJSONObject(idx)?.optString("question", "")?.trim()
+                if (!question.isNullOrEmpty()) {
+                    synchronized(turnApprovals) { turnApprovals.add(question) }
+                }
+            }
         }
     }
 
