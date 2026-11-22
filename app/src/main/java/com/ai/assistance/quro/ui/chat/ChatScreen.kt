@@ -3506,7 +3506,7 @@ fun ChatScreen(
                                         showNovelProjectSheet = true
                                     },
                                     leadingIcon = {
-                                        MenuItemIcon(Icons.Outlined.CreateNewFolder)
+                                        MenuItemIcon(Icons.Outlined.Folder)
                                     },
                                 )
                             }
