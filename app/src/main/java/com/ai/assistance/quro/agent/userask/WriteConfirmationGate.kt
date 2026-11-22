@@ -33,11 +33,7 @@ object WriteConfirmationGate {
         "novel_memory_save",
     )
 
-    /**
-     * 这几个工具是「一个工具多个 action」的复合工具，其中一部分 action 只读；
-     * 只读动作不该被写前确认拦住，否则正常看了一眼项目就被要求批准。
-     * 其余 action（novel_write 的 write/backup、novel_polish 的 apply）照旧要批准。
-     */
+    /** 这些工具的部分 action 是只读的，不该被写前确认拦住。 */
     private val READ_ONLY_ACTIONS = mapOf(
         "novel_write" to setOf("list", "read", "search", "stats", "rule"),
         "novel_polish" to setOf("prepare"),
@@ -52,18 +48,22 @@ object WriteConfirmationGate {
      */
     fun check(toolName: String, argsJson: String, approvals: Set<String>): String? {
         if (toolName !in WRITE_TOOLS) return null
-        // 只读 action 放行。action 解析不出来（缺参数 / 非法 JSON / 非法值）一律不放行：
-        // 这道门的立场是 fail-closed，宁可多问一次，不可漏放一次写入。
-        val action = runCatching { JSONObject(argsJson).optString("action", "").trim().lowercase() }
-            .getOrNull()?.takeIf { it.isNotEmpty() }
-        READ_ONLY_ACTIONS[toolName]?.let { readOnly ->
-            if (action != null && action in readOnly) return null
+        // 只读动作放行：novel_write 的 read/list/search/stats/rule、novel_polish 的 prepare。
+        // action 缺失或解析失败时不放行（fail-closed：宁可多问一次）。
+        READ_ONLY_ACTIONS[toolName]?.let { allowed ->
+            val action = actionOf(argsJson)
+            if (action != null && allowed.contains(action)) return null
         }
         val path = targetPathOf(argsJson) ?: "无法从参数中解析路径"
         val approved = approvals.any { it.isNotBlank() && (it.contains(path) || path.startsWith(it)) }
         if (approved) return null
         return "需先通过 user_ask(confirm) 获得批准，未批准不落盘（目标：$path）"
     }
+
+    /** 取 action；解析失败或为空返回 null（fail-closed：宁可多问一次）。 */
+    private fun actionOf(argsJson: String): String? = runCatching {
+        JSONObject(argsJson).optString("action", "").trim()
+    }.getOrNull()?.takeIf { it.isNotEmpty() }
 
     /** `path` 优先，其次 `project_path`；参数不是合法 JSON 或两者都为空时返回 null。 */
     private fun targetPathOf(argsJson: String): String? = runCatching {
