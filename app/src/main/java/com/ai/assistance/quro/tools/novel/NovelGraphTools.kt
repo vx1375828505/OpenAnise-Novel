@@ -133,13 +133,21 @@ object NovelGraphTools {
                 "Error: section 必须是 ${SECTIONS.joinToString(" / ")}，收到 '$section'",
                 false, toolTitle = toolTitle,
             )
-        if (!args.has("content")) {
+        // JSON 的 null 也算「有 content」，optString 会把它变成字符串 "null"——
+        // 那会把整份 019_当前卷.md 覆盖成一个字面量 "null"。
+        if (!args.has("content") || args.isNull("content")) {
             return ToolExecutionResult(
-                "Error: content 不能为空（save 需要整份文件的新内容）",
+                "Error: content 不能为空（save 需要整份文件的新内容；JSON null 不算内容）",
                 false, toolTitle = toolTitle,
             )
         }
         val content = args.optString("content", "")
+        if (content.isBlank()) {
+            return ToolExecutionResult(
+                "Error: content 不能是空白内容（覆盖写会把记忆文件清空；确实要清空请用 file_write）",
+                false, toolTitle = toolTitle,
+            )
+        }
 
         val projectDir = resolveProjectDir(projectPath)
             ?: return ToolExecutionResult("Error: 无法解析项目路径：$projectPath", false, toolTitle = toolTitle)

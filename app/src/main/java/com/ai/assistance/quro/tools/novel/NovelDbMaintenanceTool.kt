@@ -41,13 +41,23 @@ object NovelDbMaintenanceTool {
     private const val RETIRE_DIR = "$MAINT_DIR/退役归档"
     private const val BACKUP_ROOT = "草稿/归档备份"
 
-    /** 体检不计入的目录（备份区是历史留档，算进去指标就永远超标）。 */
-    private const val TEXT_EXCLUDE_PREFIX = "草稿/归档备份"
+    /**
+     * 扫描排除前缀，**必须带尾部分隔符**：`草稿/归档备份2/` 不是备份区，不能被误排除。
+     * 体检目录同样排除——体检报告正文里写着反引号路径，回扫会把上一份报告当成引用源，
+     * 第二次体检的孤儿/死链数据就全废了。
+     */
+    private val SCAN_EXCLUDE_PREFIXES = listOf("$BACKUP_ROOT/", "$CHECKUP_DIR/")
+
+    /** 报告与回执里展示的排除范围。 */
+    private val SCAN_EXCLUDE_LABEL = SCAN_EXCLUDE_PREFIXES.joinToString("、") { it.trimEnd('/') }
 
     /** 报告里每类问题最多列这么多条，剩下的只给总数。 */
     private const val LIST_LIMIT = 40
 
     private const val DEPRECATED_PREFIX = "_废弃_"
+
+    /** 维护机制自身依赖的文件：退役它们会连锁坏掉（流水/趋势/进度）。 */
+    private val PROTECTED_FILES = setOf(METRICS_PATH, CHANGELOG_PATH, "项目中枢/006_进度.md")
 
     fun definition(): AgentToolDefinition = AgentToolDefinition(
         name = NAME,
@@ -120,7 +130,7 @@ object NovelDbMaintenanceTool {
      * 扫全库 .md 出体检报告。
      *
      * 口径（对齐 `057_度量.md`）：
-     * - 文件总数：全库 .md，排除 `草稿/归档备份`（历史留档）与 `.trashed`；
+     * - 文件总数：全库 .md，排除 `草稿/归档备份/`（历史留档）、`数据库维护/体检/`（生成物）与 `.trashed`；
      * - 孤儿：其文件名没有出现在任何**其他**文件的正文里；
      * - 死链：正文里反引号包起来的 `xxx.md`，目标文件不存在。
      *   跳过 `{{...}}` 占位、`_废弃_` 前缀、`.trashed`，以及带空格或通配符的假路径。
@@ -148,7 +158,7 @@ object NovelDbMaintenanceTool {
 
         val sb = StringBuilder()
         sb.append("体检完成：《${projectDir.name}》\n")
-        sb.append("文件总数：${scan.total}（排除 $TEXT_EXCLUDE_PREFIX 与 .trashed）\n")
+        sb.append("文件总数：${scan.total}（排除 $SCAN_EXCLUDE_LABEL 与 .trashed）\n")
         sb.append("孤儿文件：${scan.orphans.size}\n")
         sb.append("死链：${scan.deadLinks.size}\n")
         sb.append("报告：$projectPath/$CHECKUP_DIR/${outFile.name}")
@@ -170,7 +180,7 @@ object NovelDbMaintenanceTool {
         sb.append("\n\n## 体检数据\n\n")
         sb.append("| 字段 | 值 | 说明 |\n|---|---|---|\n")
         sb.append("| 体检日期 | $today | 自动体检 |\n")
-        sb.append("| 文件总数 | ${scan.total} | 全库 .md，排除 $TEXT_EXCLUDE_PREFIX 与 .trashed |\n")
+        sb.append("| 文件总数 | ${scan.total} | 全库 .md，排除 $SCAN_EXCLUDE_LABEL 与 .trashed |\n")
         sb.append("| 周新增 | — | 需与上周快照对比，工具不推算 |\n")
         sb.append("| 孤儿文件 | ${scan.orphans.size} | 没有任何其他文件引用其文件名；健康值 0 |\n")
         sb.append("| 死链 | ${scan.deadLinks.size} | 反引号里引用了不存在的 .md；健康值 0 |\n")
@@ -402,11 +412,37 @@ object NovelDbMaintenanceTool {
                 false, toolTitle = toolTitle,
             )
         }
-        val rootPath = runCatching { projectDir.canonicalPath }.getOrDefault(projectDir.absolutePath)
-        val srcPath = runCatching { src.canonicalPath }.getOrDefault(src.absolutePath)
-        if (!srcPath.startsWith(rootPath)) {
+        // `..` 一律拒绝：`../我的书-备份/正文/第001章.txt` 能穿过前缀判定，把兄弟项目的稿子移走。
+        if (fileArg.split('/', '\\').any { it == ".." }) {
+            return ToolExecutionResult(
+                "Error: 退役路径不能含 `..`（收到：$fileArg）。请写项目内的规范路径。",
+                false, toolTitle = toolTitle,
+            )
+        }
+        val root = runCatching { projectDir.canonicalFile }.getOrElse {
+            return ToolExecutionResult(
+                "Error: 无法解析项目根目录：${it.message ?: it.javaClass.simpleName}",
+                false, toolTitle = toolTitle,
+            )
+        }
+        val srcCanonical = runCatching { src.canonicalFile }.getOrElse {
+            return ToolExecutionResult(
+                "Error: 无法解析目标文件路径：${it.message ?: it.javaClass.simpleName}",
+                false, toolTitle = toolTitle,
+            )
+        }
+        // 必须按「根 + 分隔符」判前缀，否则 `/…/我的书` 会放行 `/…/我的书2/x.md`。
+        if (!srcCanonical.path.startsWith(root.path + File.separator)) {
             return ToolExecutionResult(
                 "Error: 只能退役项目目录内的文件（$fileArg 在项目根之外）",
+                false, toolTitle = toolTitle,
+            )
+        }
+        val relFromRoot = srcCanonical.path.removePrefix(root.path + File.separator)
+            .replace(File.separatorChar, '/')
+        if (relFromRoot in PROTECTED_FILES) {
+            return ToolExecutionResult(
+                "Error: $relFromRoot 是维护机制自身依赖的文件，不能退役（否则变更日志/度量/进度会连锁断掉）",
                 false, toolTitle = toolTitle,
             )
         }
@@ -429,7 +465,7 @@ object NovelDbMaintenanceTool {
             )
         }
 
-        val relFrom = relativePath(projectDir, src)
+        val relFrom = relFromRoot
         val relTo = relativePath(projectDir, dst)
         val logEntry = buildChangelogEntry(
             item = "退役 ${src.name}",
@@ -548,7 +584,7 @@ object NovelDbMaintenanceTool {
     private fun dayStampCompact(): String = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
 
     private fun isExcluded(rel: String): Boolean {
-        if (rel.startsWith(TEXT_EXCLUDE_PREFIX)) return true
+        if (SCAN_EXCLUDE_PREFIXES.any { rel.startsWith(it) }) return true
         return rel.split('/').any { it.startsWith(".trashed") }
     }
 
