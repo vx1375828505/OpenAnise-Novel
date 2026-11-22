@@ -215,10 +215,14 @@ object NovelTools {
         val ruleName = args.optString("rule_name", "").trim()
         if (ruleName.isBlank()) return ToolExecutionResult("Error: rule 需要 rule_name 参数", false, toolTitle = toolTitle)
         val ruleDir = resolveDir(project, RULE_DIR)
-        val subDirs = listOf("写文规则", "文章精修规则", "禁则", "逻辑判断")
+        // 规则子目录不写死：把 ruleDir 下真实存在的子目录都试一遍，
+        // 模板换布局（写文规则 / 文章精修规则 / 词造数据库 / 剧情记忆…）也不会漏。
         val candidates = mutableListOf(File(ruleDir, ruleName))
-        for (sub in subDirs) candidates.add(File(ruleDir, "$sub/$ruleName"))
+        runCatching {
+            ruleDir.listFiles()?.filter { it.isDirectory }?.forEach { candidates.add(File(it, ruleName)) }
+        }
         val found = candidates.firstOrNull { it.isFile }
+            ?: runCatching { ruleDir.walkTopDown().firstOrNull { it.isFile && it.name == ruleName } }.getOrNull()
             ?: return ToolExecutionResult("Error: 找不到规则 '$ruleName'。可在 $RULE_DIR/ 或其子目录中查找。", false, toolTitle = toolTitle)
         return ToolExecutionResult(found.readText(), true, toolTitle = toolTitle)
     }
