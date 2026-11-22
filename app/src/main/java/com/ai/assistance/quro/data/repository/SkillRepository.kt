@@ -235,6 +235,9 @@ class SkillRepository(private val context: Context) {
         runCatching { installBundledSkills() }.onFailure {
             Log.e(TAG, "installBundledSkills failed — continuing: ${it.message}", it)
         }
+        runCatching { installBundledNovelPreset() }.onFailure {
+            Log.e(TAG, "installBundledNovelPreset failed — continuing: ${it.message}", it)
+        }
         startReloadWorker()
     }
 
@@ -1268,6 +1271,54 @@ class SkillRepository(private val context: Context) {
                 source = ImportSource.BUNDLED,
             )
             Log.i(TAG, "Installed bundled skill: $bundledId (v$bundledVersion)")
+        }
+    }
+
+    /**
+     * 首次启动把 assets/novel-preset/ 展开为内置技能「novel-project」。
+     *
+     * 这是"小说项目库预设"的落地：模板 113 个文件 + SKILL.md + 3 个脚本
+     * 全部复制到 skillsDir/novel-project/，AI 通过 skill 机制 read SKILL.md 后，
+     * 可直接 file_read 使用 template/ 与 scripts/，无需联网导入。
+     *
+     * 幂等：已存在同版本或更高版本时跳过；复制失败只记日志，不影响 App 启动
+     * （对齐 GH#147：SkillRepository 构造期任何异常外溢都会让 Application 永久损坏）。
+     */
+    private fun installBundledNovelPreset() {
+        val presetId = "novel-project"
+        val presetVersion = "1.0.0"
+        val existing = _skills.value.find { it.id == presetId }
+        if (existing != null && existing.version >= presetVersion) return
+
+        val targetDir = File(skillsDir, presetId)
+        copyAssetTree("novel-preset", targetDir)
+
+        if (existing == null) {
+            val md = context.assets.open("novel-preset/SKILL.md")
+                .bufferedReader().use { it.readText() }
+            importFromContent(md, ImportSource.BUNDLED)
+            Log.i(TAG, "Installed bundled novel preset: $presetId (v$presetVersion)")
+        }
+    }
+
+    /**
+     * 递归复制 assets 下的目录树到本地目录。
+     * 单个文件失败只记日志并跳过，保证整体播种不中断。
+     */
+    private fun copyAssetTree(assetPath: String, dest: File) {
+        val children = runCatching { context.assets.list(assetPath) }.getOrNull() ?: emptyArray()
+        if (children.isEmpty()) {
+            runCatching {
+                dest.parentFile?.mkdirs()
+                context.assets.open(assetPath).use { input ->
+                    dest.outputStream().use { output -> input.copyTo(output) }
+                }
+            }.onFailure { Log.w(TAG, "copyAssetTree skip $assetPath: ${it.message}") }
+            return
+        }
+        dest.mkdirs()
+        for (child in children) {
+            copyAssetTree("$assetPath/$child", File(dest, child))
         }
     }
 
