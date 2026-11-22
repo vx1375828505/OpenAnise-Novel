@@ -31,12 +31,15 @@ object WriteConfirmationGate {
         "novel_write",
         "novel_polish",
         "novel_memory_save",
+        "novel_db_maintenance",
     )
 
     /** 这些工具的部分 action 是只读的，不该被写前确认拦住。 */
     private val READ_ONLY_ACTIONS = mapOf(
         "novel_write" to setOf("list", "read", "search", "stats", "rule"),
         "novel_polish" to setOf("prepare"),
+        // 体检只扫描、不落盘业务文件（只写一份体检报告），不该要求批准。
+        "novel_db_maintenance" to setOf("checkup"),
     )
 
     /**

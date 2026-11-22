@@ -67,6 +67,7 @@ import com.ai.assistance.quro.core.tools.novel.NovelMemoryGraphTool
 import com.ai.assistance.quro.core.tools.novel.NovelMemoryLinkTool
 import com.ai.assistance.quro.core.tools.novel.NovelMemoryTextTool
 import com.ai.assistance.quro.agent.userask.WriteConfirmationGate
+import com.ai.assistance.quro.tools.novel.NovelDbMaintenanceTool
 import com.ai.assistance.quro.tools.novel.NovelGraphTools
 import com.ai.assistance.quro.tools.NovelReviewTools
 import com.ai.assistance.quro.tools.FileReadTool
@@ -14182,6 +14183,7 @@ class ChatViewModel(
             // [T-novel-write-gate] 文本库记忆读写：直接落 project_path 下的项目目录
             NovelGraphTools.NAME_SAVE -> NovelGraphTools.executeSave(argsJson)
             NovelGraphTools.NAME_QUERY -> NovelGraphTools.executeQuery(argsJson)
+            NovelDbMaintenanceTool.NAME -> NovelDbMaintenanceTool.execute(argsJson)
             // T178: pass sessionId + context so read_image routes through
             // resolveSessionHostPath like file_read/write/edit do — without
             // these, the tool consults the global last-writer-wins
