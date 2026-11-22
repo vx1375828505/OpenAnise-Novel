@@ -56,8 +56,33 @@ object NovelDbMaintenanceTool {
 
     private const val DEPRECATED_PREFIX = "_废弃_"
 
-    /** 维护机制自身依赖的文件：退役它们会连锁坏掉（流水/趋势/进度）。 */
-    private val PROTECTED_FILES = setOf(METRICS_PATH, CHANGELOG_PATH, "项目中枢/006_进度.md")
+    /**
+     * 维护机制自身依赖的文件：门牌、总路由、约束、变更日志、度量、单类规则路由、进度。
+     * 退役其中任何一个，「指路牌 → 路由 → 规则」这条链就断了，后续体检全是死链。
+     */
+    private val PROTECTED_FILES = setOf(
+        "$MAINT_DIR/055_约束.md",
+        METRICS_PATH,
+        CHANGELOG_PATH,
+        "项目导引/001_总路由.md",
+        "项目中枢/006_进度.md",
+        "项目中枢/文章精修规则/061_规则调用路由.md",
+    )
+
+    /**
+     * 门牌（`000__子路由.md`）与单类规则（062-083）按规则判定，
+     * 免得把二十多个文件逐个写进名单。
+     */
+    private fun isProtectedRel(rel: String): Boolean {
+        if (rel in PROTECTED_FILES) return true
+        val base = rel.substringAfterLast('/')
+        if (base == "000__子路由.md") return true
+        if (rel.startsWith("项目中枢/文章精修规则/")) {
+            val n = base.take(3).toIntOrNull()
+            if (n != null && n in 62..83) return true
+        }
+        return false
+    }
 
     fun definition(): AgentToolDefinition = AgentToolDefinition(
         name = NAME,
@@ -443,9 +468,10 @@ object NovelDbMaintenanceTool {
         }
         val relFromRoot = srcCanonical.path.removePrefix(root.path + File.separator)
             .replace(File.separatorChar, '/')
-        if (relFromRoot in PROTECTED_FILES) {
+        if (isProtectedRel(relFromRoot)) {
             return ToolExecutionResult(
-                "Error: $relFromRoot 是维护机制自身依赖的文件，不能退役（否则变更日志/度量/进度会连锁断掉）",
+                "Error: $relFromRoot 是维护机制自身依赖的文件（门牌/路由/约束/日志/度量/单类规则），"
+                    + "不能退役——否则指路牌与规则链会连锁断掉。",
                 false, toolTitle = toolTitle,
             )
         }

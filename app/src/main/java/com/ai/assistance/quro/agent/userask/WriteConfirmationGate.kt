@@ -59,6 +59,7 @@ object WriteConfirmationGate {
      */
     private val SHELL_WRITE_PATTERNS = listOf(
         ">", ">>", "cp ", "mv ", "rm ", "sed -i", "tee ", "mkdir ", "touch ", "dd ",
+        "chmod ", "chown ", "ln ", "git ",
     )
 
     /** 命令里的绝对路径 token：`/` 开头，到空白或 shell 分隔符为止。 */
@@ -110,6 +111,8 @@ object WriteConfirmationGate {
     private fun checkShellWrite(argsJson: String, approvals: Set<String>): String? {
         val command = runCatching { JSONObject(argsJson).optString("command", "") }.getOrNull().orEmpty()
         if (command.isBlank()) return null
+        // 不含写模式 = 纯读命令（ls / cat / grep / find / head / tail / wc / stat / file / tree /
+        // pwd / echo 等），放行；有写模式就按写处理——宁可多问一次。
         if (SHELL_WRITE_PATTERNS.none { command.contains(it) }) return null
         val targets = shellTargets(command, argsJson)
         if (targets.isEmpty()) {
