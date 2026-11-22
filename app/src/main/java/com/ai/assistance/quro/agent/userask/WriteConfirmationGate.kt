@@ -62,7 +62,7 @@ object WriteConfirmationGate {
 
     /** 取 action；解析失败或为空返回 null（fail-closed：宁可多问一次）。 */
     private fun actionOf(argsJson: String): String? = runCatching {
-        JSONObject(argsJson).optString("action", "").trim()
+        JSONObject(argsJson).optString("action", "").trim().lowercase()
     }.getOrNull()?.takeIf { it.isNotEmpty() }
 
     /** `path` 优先，其次 `project_path`；参数不是合法 JSON 或两者都为空时返回 null。 */
