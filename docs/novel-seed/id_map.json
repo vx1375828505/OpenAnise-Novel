@@ -1,0 +1,177 @@
+[
+  {
+    "old_id": "penai_a794ce3d72ad",
+    "genre_id": "urban_zhuixu",
+    "new_id": "genre-urban_zhuixu",
+    "name": "都市赘婿·隐忍爆发",
+    "file": "skills/penai/urban_zhuixu/SKILL.md"
+  },
+  {
+    "old_id": "penai_fa9cb3cc9b98",
+    "genre_id": "urban_shenyi",
+    "new_id": "genre-urban_shenyi",
+    "name": "都市神医·一针定乾坤",
+    "file": "skills/penai/urban_shenyi/SKILL.md"
+  },
+  {
+    "old_id": "penai_d90acf742d25",
+    "genre_id": "urban_zhanshen",
+    "new_id": "genre-urban_zhanshen",
+    "name": "都市战神·龙帅归来",
+    "file": "skills/penai/urban_zhanshen/SKILL.md"
+  },
+  {
+    "old_id": "penai_dd1c50ac633a",
+    "genre_id": "fantasy_qiandao",
+    "new_id": "genre-fantasy_qiandao",
+    "name": "玄幻签到·开局无敌",
+    "file": "skills/penai/fantasy_qiandao/SKILL.md"
+  },
+  {
+    "old_id": "penai_7c64b6a99396",
+    "genre_id": "fantasy_renwu",
+    "new_id": "genre-fantasy_renwu",
+    "name": "玄幻系统·任务狂魔",
+    "file": "skills/penai/fantasy_renwu/SKILL.md"
+  },
+  {
+    "old_id": "penai_e9c5673e81ad",
+    "genre_id": "fantasy_wudi",
+    "new_id": "genre-fantasy_wudi",
+    "name": "玄幻无敌·横推诸天",
+    "file": "skills/penai/fantasy_wudi/SKILL.md"
+  },
+  {
+    "old_id": "penai_d867b0afbc99",
+    "genre_id": "chuanyue_zhongtian",
+    "new_id": "genre-chuanyue_zhongtian",
+    "name": "穿越种田·发家致富",
+    "file": "skills/penai/chuanyue_zhongtian/SKILL.md"
+  },
+  {
+    "old_id": "penai_f7af0792f9c9",
+    "genre_id": "chuanyue_niandai",
+    "new_id": "genre-chuanyue_niandai",
+    "name": "穿越年代·改革开放",
+    "file": "skills/penai/chuanyue_niandai/SKILL.md"
+  },
+  {
+    "old_id": "penai_22609d6c6285",
+    "genre_id": "xuanyi_lingyi",
+    "new_id": "genre-xuanyi_lingyi",
+    "name": "悬疑灵异·捉鬼天师",
+    "file": "skills/penai/xuanyi_lingyi/SKILL.md"
+  },
+  {
+    "old_id": "penai_7150814ed8d1",
+    "genre_id": "xuanyi_daomu",
+    "new_id": "genre-xuanyi_daomu",
+    "name": "盗墓探险·寻龙点穴",
+    "file": "skills/penai/xuanyi_daomu/SKILL.md"
+  },
+  {
+    "old_id": "penai_624ada613696",
+    "genre_id": "guize_guaitan",
+    "new_id": "genre-guize_guaitan",
+    "name": "规则怪谈·发疯破局流",
+    "file": "skills/penai/guize_guaitan/SKILL.md"
+  },
+  {
+    "old_id": "penai_09c23131db4b",
+    "genre_id": "xiancheng_zhenxing",
+    "new_id": "genre-xiancheng_zhenxing",
+    "name": "县城振兴·全民分红流",
+    "file": "skills/penai/xiancheng_zhenxing/SKILL.md"
+  },
+  {
+    "old_id": "penai_7125c5b829c1",
+    "genre_id": "xiuxian_zc",
+    "new_id": "genre-xiuxian_zc",
+    "name": "修仙职场·KPI考核流",
+    "file": "skills/penai/xiuxian_zc/SKILL.md"
+  },
+  {
+    "old_id": "penai_97f3d07b834e",
+    "genre_id": "female_gaojian",
+    "new_id": "genre-female_gaojian",
+    "name": "无CP大女主·搞钱流",
+    "file": "skills/penai/female_gaojian/SKILL.md"
+  },
+  {
+    "old_id": "penai_0242c9d29028",
+    "genre_id": "qingxu_fafeng",
+    "new_id": "genre-qingxu_fafeng",
+    "name": "情绪发疯·怼人变强流",
+    "file": "skills/penai/qingxu_fafeng/SKILL.md"
+  },
+  {
+    "old_id": "penai_9084e717cb8a",
+    "genre_id": "changsheng_jiazu",
+    "new_id": "genre-changsheng_jiazu",
+    "name": "长生家族·千年底蕴流",
+    "file": "skills/penai/changsheng_jiazu/SKILL.md"
+  },
+  {
+    "old_id": "penai_1470b18872be",
+    "genre_id": "tianming_fanpai",
+    "new_id": "genre-tianming_fanpai",
+    "name": "天命反派·背景编辑流",
+    "file": "skills/penai/tianming_fanpai/SKILL.md"
+  },
+  {
+    "old_id": "penai_f4a44f13a758",
+    "genre_id": "edu_nvpei",
+    "new_id": "genre-edu_nvpei",
+    "name": "恶毒女配·全家反派洗白流",
+    "file": "skills/penai/edu_nvpei/SKILL.md"
+  },
+  {
+    "old_id": "penai_90039a07068e",
+    "genre_id": "dushi_shouye",
+    "new_id": "genre-dushi_shouye",
+    "name": "都市高武·守夜人流",
+    "file": "skills/penai/dushi_shouye/SKILL.md"
+  },
+  {
+    "old_id": "penai_f8a95188476e",
+    "genre_id": "niandai_qinqing",
+    "new_id": "genre-niandai_qinqing",
+    "name": "年代重生·整顿亲情流",
+    "file": "skills/penai/niandai_qinqing/SKILL.md"
+  },
+  {
+    "old_id": "penai_de3a8bbece70",
+    "genre_id": "zhiye_xt",
+    "new_id": "genre-zhiye_xt",
+    "name": "职业系统·超能力流",
+    "file": "skills/penai/zhiye_xt/SKILL.md"
+  },
+  {
+    "old_id": "penai_bfbcb3cd9937",
+    "genre_id": "nvxing_xingzhen",
+    "new_id": "genre-nvxing_xingzhen",
+    "name": "女性悬疑·刑侦流",
+    "file": "skills/penai/nvxing_xingzhen/SKILL.md"
+  },
+  {
+    "old_id": "penai_734a76481df2",
+    "genre_id": "moyu_bailan",
+    "new_id": "genre-moyu_bailan",
+    "name": "摸鱼摆烂·变强流",
+    "file": "skills/penai/moyu_bailan/SKILL.md"
+  },
+  {
+    "old_id": "penai_805aadbdc967",
+    "genre_id": "zhibo_nixi",
+    "new_id": "genre-zhibo_nixi",
+    "name": "直播短视频·逆袭流",
+    "file": "skills/penai/zhibo_nixi/SKILL.md"
+  },
+  {
+    "old_id": "penai_f3728827fea9",
+    "genre_id": "honghuang_bianji",
+    "new_id": "genre-honghuang_bianji",
+    "name": "洪荒神话·编辑流",
+    "file": "skills/penai/honghuang_bianji/SKILL.md"
+  }
+]

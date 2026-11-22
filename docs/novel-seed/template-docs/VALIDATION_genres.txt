@@ -1,0 +1,139 @@
+========================================================================
+OpenAnise-Novel 技能包移植 · B2 流派批次 校验报告（§3.2/§4.2 权威版）
+========================================================================
+源资产目录: C:\1111\openanise-skills\ref-old\skills\penai
+产出目录  : C:\1111\openanise-skills\out\genres
+id_map 条目: 25
+
+[1] 产出文件齐全性检查
+  - 应产出 25 个；实际产出 25 个；缺失 0 个
+  - 结果: PASS
+
+[2] 正文逐字一致性检查（diff 差异数必须为 0）
+  - genre-urban_zhuixu         正文长度= 2018 逐字相等=True 差异数=0
+  - genre-urban_shenyi         正文长度= 1915 逐字相等=True 差异数=0
+  - genre-urban_zhanshen       正文长度= 1928 逐字相等=True 差异数=0
+  - genre-fantasy_qiandao      正文长度= 1822 逐字相等=True 差异数=0
+  - genre-fantasy_renwu        正文长度= 1812 逐字相等=True 差异数=0
+  - genre-fantasy_wudi         正文长度= 1867 逐字相等=True 差异数=0
+  - genre-chuanyue_zhongtian   正文长度= 1917 逐字相等=True 差异数=0
+  - genre-chuanyue_niandai     正文长度= 1922 逐字相等=True 差异数=0
+  - genre-xuanyi_lingyi        正文长度= 1925 逐字相等=True 差异数=0
+  - genre-xuanyi_daomu         正文长度= 1913 逐字相等=True 差异数=0
+  - genre-guize_guaitan        正文长度= 2110 逐字相等=True 差异数=0
+  - genre-xiancheng_zhenxing   正文长度= 2105 逐字相等=True 差异数=0
+  - genre-xiuxian_zc           正文长度= 2034 逐字相等=True 差异数=0
+  - genre-female_gaojian       正文长度= 2032 逐字相等=True 差异数=0
+  - genre-qingxu_fafeng        正文长度= 2044 逐字相等=True 差异数=0
+  - genre-changsheng_jiazu     正文长度= 2052 逐字相等=True 差异数=0
+  - genre-tianming_fanpai      正文长度= 2069 逐字相等=True 差异数=0
+  - genre-edu_nvpei            正文长度= 2083 逐字相等=True 差异数=0
+  - genre-dushi_shouye         正文长度= 2123 逐字相等=True 差异数=0
+  - genre-niandai_qinqing      正文长度= 2097 逐字相等=True 差异数=0
+  - genre-zhiye_xt             正文长度= 2006 逐字相等=True 差异数=0
+  - genre-nvxing_xingzhen      正文长度= 1946 逐字相等=True 差异数=0
+  - genre-moyu_bailan          正文长度= 1987 逐字相等=True 差异数=0
+  - genre-zhibo_nixi           正文长度= 2004 逐字相等=True 差异数=0
+  - genre-honghuang_bianji     正文长度= 2099 逐字相等=True 差异数=0
+  - 差异总数: 0（必须为 0）
+  - 结果: PASS
+
+[3] description 长度与结构检查（<= 195 字符）
+  - genre-urban_zhuixu         长度= 66 OK   规约+触发场景=True
+  - genre-urban_shenyi         长度= 70 OK   规约+触发场景=True
+  - genre-urban_zhanshen       长度= 66 OK   规约+触发场景=True
+  - genre-fantasy_qiandao      长度= 63 OK   规约+触发场景=True
+  - genre-fantasy_renwu        长度= 67 OK   规约+触发场景=True
+  - genre-fantasy_wudi         长度= 60 OK   规约+触发场景=True
+  - genre-chuanyue_zhongtian   长度= 74 OK   规约+触发场景=True
+  - genre-chuanyue_niandai     长度= 67 OK   规约+触发场景=True
+  - genre-xuanyi_lingyi        长度= 66 OK   规约+触发场景=True
+  - genre-xuanyi_daomu         长度= 62 OK   规约+触发场景=True
+  - genre-guize_guaitan        长度= 72 OK   规约+触发场景=True
+  - genre-xiancheng_zhenxing   长度= 66 OK   规约+触发场景=True
+  - genre-xiuxian_zc           长度= 75 OK   规约+触发场景=True
+  - genre-female_gaojian       长度= 74 OK   规约+触发场景=True
+  - genre-qingxu_fafeng        长度= 67 OK   规约+触发场景=True
+  - genre-changsheng_jiazu     长度= 69 OK   规约+触发场景=True
+  - genre-tianming_fanpai      长度= 72 OK   规约+触发场景=True
+  - genre-edu_nvpei            长度= 72 OK   规约+触发场景=True
+  - genre-dushi_shouye         长度= 74 OK   规约+触发场景=True
+  - genre-niandai_qinqing      长度= 75 OK   规约+触发场景=True
+  - genre-zhiye_xt             长度= 70 OK   规约+触发场景=True
+  - genre-nvxing_xingzhen      长度= 70 OK   规约+触发场景=True
+  - genre-moyu_bailan          长度= 66 OK   规约+触发场景=True
+  - genre-zhibo_nixi           长度= 63 OK   规约+触发场景=True
+  - genre-honghuang_bianji     长度= 64 OK   规约+触发场景=True
+  - 超限数: 0（必须为 0）
+  - 结果: PASS
+
+[4] 目录名与 id_map.json new_id 一一对应检查
+  - 含 SKILL.md 的目录数: 25（应为 25）
+  - 目录名集合 == new_id 集合: True
+  - 目录名重复数: 0（必须为 0）
+  - 结果: PASS
+
+[5] 已废弃字段残留检查（trigger: 与 id: 残留数必须为 0）
+  - genre-urban_zhuixu         trigger:=0 id:=0
+  - genre-urban_shenyi         trigger:=0 id:=0
+  - genre-urban_zhanshen       trigger:=0 id:=0
+  - genre-fantasy_qiandao      trigger:=0 id:=0
+  - genre-fantasy_renwu        trigger:=0 id:=0
+  - genre-fantasy_wudi         trigger:=0 id:=0
+  - genre-chuanyue_zhongtian   trigger:=0 id:=0
+  - genre-chuanyue_niandai     trigger:=0 id:=0
+  - genre-xuanyi_lingyi        trigger:=0 id:=0
+  - genre-xuanyi_daomu         trigger:=0 id:=0
+  - genre-guize_guaitan        trigger:=0 id:=0
+  - genre-xiancheng_zhenxing   trigger:=0 id:=0
+  - genre-xiuxian_zc           trigger:=0 id:=0
+  - genre-female_gaojian       trigger:=0 id:=0
+  - genre-qingxu_fafeng        trigger:=0 id:=0
+  - genre-changsheng_jiazu     trigger:=0 id:=0
+  - genre-tianming_fanpai      trigger:=0 id:=0
+  - genre-edu_nvpei            trigger:=0 id:=0
+  - genre-dushi_shouye         trigger:=0 id:=0
+  - genre-niandai_qinqing      trigger:=0 id:=0
+  - genre-zhiye_xt             trigger:=0 id:=0
+  - genre-nvxing_xingzhen      trigger:=0 id:=0
+  - genre-moyu_bailan          trigger:=0 id:=0
+  - genre-zhibo_nixi           trigger:=0 id:=0
+  - genre-honghuang_bianji     trigger:=0 id:=0
+  - trigger: 残留总数: 0（必须为 0）
+  - id: 残留总数: 0（必须为 0）
+  - 结果: PASS
+
+[6] frontmatter 字段与顺序检查（name / version / description）
+  - genre-urban_zhuixu         字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-urban_shenyi         字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-urban_zhanshen       字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-fantasy_qiandao      字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-fantasy_renwu        字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-fantasy_wudi         字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-chuanyue_zhongtian   字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-chuanyue_niandai     字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-xuanyi_lingyi        字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-xuanyi_daomu         字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-guize_guaitan        字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-xiancheng_zhenxing   字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-xiuxian_zc           字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-female_gaojian       字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-qingxu_fafeng        字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-changsheng_jiazu     字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-tianming_fanpai      字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-edu_nvpei            字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-dushi_shouye         字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-niandai_qinqing      字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-zhiye_xt             字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-nvxing_xingzhen      字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-moyu_bailan          字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-zhibo_nixi           字段=['name', 'version', 'description'] 顺序与name正确=True
+  - genre-honghuang_bianji     字段=['name', 'version', 'description'] 顺序与name正确=True
+  - 正确数: 25/25
+  - 结果: PASS
+
+========================================================================
+总判定: PASS —— 25 文件齐全、正文逐字一致（差异数 0）、
+         description <=195 且为规约+触发场景结构、目录名与 id_map 一一对应、
+         trigger:/id: 残留均为 0、frontmatter 仅 name/version/description 三字段。
+========================================================================
