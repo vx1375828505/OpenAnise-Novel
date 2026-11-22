@@ -1,0 +1,159 @@
+OpenAnise-Novel 技能包移植 · B1 基础设施批 —— 集成说明
+============================================================
+
+一、产出文件与投放路径（相对 Android 工程根）
+------------------------------------------------------------
+本批产出 4 个文件，包名统一为 com.ai.assistance.quro（上游 com.openminis.app，
+两仓库 SkillRepository.kt 仅 2 行 diff：package 名 + NetworkHttp 包名，见方案 §6）。
+
+1) out/kotlin/SeedNovelSkills.kt
+   -> src/android/app/src/main/java/com/ai/assistance/quro/data/repository/SeedNovelSkills.kt
+   （与 SkillRepository.kt 同目录；提供 NovelSeedEntry / NovelSkillPack /
+     NovelSkillSink / NovelParsedSkill / seedBuiltinNovelSkills()）
+
+2) out/kotlin/NovelSkillGuard.kt
+   -> src/android/app/src/main/java/com/ai/assistance/quro/data/repository/NovelSkillGuard.kt
+   （同目录；守卫 key + genre-/novel-writing id 约定 + assets 路径 + NovelSkillGuardStore）
+
+3) out/kotlin/SeedNovelSkillsTest.kt
+   -> src/android/app/src/test/java/com/ai/assistance/quro/data/repository/SeedNovelSkillsTest.kt
+   （JVM 本地单测，JUnit4，不需要 Android 模拟器/Robolectric）
+
+4) 本文件随产出留存，不需要进工程源码。
+
+依赖资产 ①：25 流派（B2 产出）
+   暂存产物：out/genres/<new_id>/SKILL.md（B2 输出，team-lead 任务书指定位置）
+   装配链路：out/genres/<new_id>/SKILL.md
+             -> final/skills-novel/<new_id>/SKILL.md（team-lead 的 assemble.py 负责复制）
+             -> src/android/app/src/main/assets/skills-novel/<new_id>/SKILL.md  共 25 个
+   目录名即 new_id；frontmatter 只有 name/version/description，无 id、无 trigger。
+   已核对：25 个目录与 id_map.json new_id 逐一对应，version 全为 1.0.0，
+   description 60~75 字符（远低于 200 截断线）。
+
+依赖资产 ②：父技能 novel-writing（B3 产出）
+   暂存产物：out/subagents/novel-writing/SKILL.md + references/ 下 9 个文件
+   装配链路：out/subagents/novel-writing/**
+             -> final/skills-novel/novel-writing/**（assemble.py）
+             -> src/android/app/src/main/assets/skills-novel/novel-writing/**
+   B3 的 SKILL.md frontmatter 当前多写了一个 `id: novel-writing` 字段；
+   team-lead 会在总装前删除它。播种器完全不依赖该字段，id 由 NovelSkillPack
+   显式给出（与流派技能同构，符合方案 §3.2「frontmatter 只准三字段」）。
+   references 文件清单已固化在 NovelSkillPack.PARENT_ENTRY.siblingAssets：
+     outline / character / foreshadow / polish / review / consistency /
+     delegation / convergence / style-tokens（共 9 个）。
+
+上述资产必须放 src/main/assets（release 也打包），不能放 src/debug/assets
+—— 方案 §6 证据 9 明确 release 需要。资产缺失的单条会被跳过并记日志，
+且守卫不落定，下次启动续种。B1 不实现资产复制，职责归 assemble.py。
+
+
+二、需要改动的现有调用点（仅 1 处）
+------------------------------------------------------------
+文件：src/android/app/src/main/java/com/ai/assistance/quro/data/repository/SkillRepository.kt
+
+在 init {} 中，紧随既有 installBundledSkills() 之后插入（方案 §4.5；
+R7 要求与基座同样 runCatching，绝不能让播种异常冒到 MinisApp.onCreate）：
+
+    runCatching { installBundledSkills() }.onFailure { ... }   // 现有，保持不动
+
+    runCatching { seedNovelSkillsSafely() }.onFailure {
+        Log.e(TAG, "seedNovelSkillsSafely failed — continuing: ${it.message}", it)
+    }
+
+并在 SkillRepository 类体内新增适配方法（private），把私有的
+insertDb / writeSkillMd / mutateSkills / setEnabled 借给播种器：
+
+    private fun seedNovelSkillsSafely() {
+        val prefs = context.getSharedPreferences(NovelSkillGuard.PREFS_NAME, Context.MODE_PRIVATE)
+        seedBuiltinNovelSkills(
+            sink = object : NovelSkillSink {
+                override fun contains(id: String): Boolean = _skills.value.any { it.id == id }
+                override fun insert(skill: Skill) {
+                    insertDb(skill)            // INSERT OR REPLACE，显式 id
+                    writeSkillMd(skill)        // 重写 frontmatter 三字段 + body
+                    mutateSkills { list -> list + skill }
+                }
+                override fun copySiblingAssets(id: String, assetPaths: List<String>) {
+                    val targetDir = File(skillsDir, id)
+                    for (path in assetPaths) {
+                        val relative = path.removePrefix("${NovelSkillGuard.ASSET_ROOT}/$id/")
+                        val dest = File(targetDir, relative)
+                        if (dest.exists()) continue       // 用户改过的 references 不覆盖
+                        dest.parentFile?.mkdirs()
+                        context.assets.open(path).use { input ->
+                            FileOutputStream(dest).use { out -> input.copyTo(out) }
+                        }
+                    }
+                }
+                override fun setEnabled(id: String, enabled: Boolean) {
+                    this@SkillRepository.setEnabled(id, enabled)
+                }
+            },
+            guardStore = object : NovelSkillGuardStore {
+                override fun getBoolean(key: String, defaultValue: Boolean) =
+                    prefs.getBoolean(key, defaultValue)
+                override fun putBoolean(key: String, value: Boolean) {
+                    prefs.edit().putBoolean(key, value).apply()
+                }
+            },
+            assetReader = { path ->
+                context.assets.open(path).bufferedReader().use { it.readText() }
+            },
+            parseSkillMd = { content ->
+                parseSkillMd(content)?.let { NovelParsedSkill(it.description, it.version, it.body) }
+            },
+            log = { msg -> Log.i(TAG, msg) },
+        )
+    }
+
+必要 import（同包下 SeedNovelSkills.kt / NovelSkillGuard.kt 的声明可直接使用，
+无需 import；SkillRepository.kt 已有 java.io.File / FileOutputStream：
+    import android.content.Context
+
+说明：
+- parseSkillMd 是 SkillRepository companion 的 internal 函数（:62），
+  在类内可直接调用；用它复用上游的 BOM/CRLF/块标量兼容逻辑。
+- sink.insert 必须走 insertDb+writeSkillMd 手写通道，不能改用 add() 或
+  importFromContent()：它们内部用 slugify(name)，25 个中文名全部归一化为空串
+  而被拒绝（SkillRepository.kt:244-245 / :494，方案 R1）。父技能名恰好是 ASCII
+  slug，但为保持统一与显式，同样走这条通道。
+- copySiblingAssets 是新增的桥接方法：writeSkillMd 只写 SKILL.md，不会复制
+  references/。父技能必须先复制 references 再入库（播种器内部已保证顺序），
+  否则 B3 的 9 个角色文件不会出现在 minis-global/skills/novel-writing/ 下。
+- 守卫 key = NovelSkillGuard.KEY_SEEDED = "builtin_novel_skills_v2"。
+  从 v1 升版是为了让已跑过旧版（只装 25 流派）的设备在升级后再跑一轮：
+  已有 25 条按 id 幂等跳过，只补装 novel-writing。只有整轮无失败才写 true；
+  异常时下次启动重试，已插入项由 contains 幂等跳过。
+- 开关差异：25 流派 is_enabled=false（D2，避免 20 上限预算被 25 个流派挤占，
+  会话选用交给 B4 的 setSessionOverride / SessionSkillsSheet）；父技能
+  novel-writing is_enabled=true（D3，它是 6 角色能力的唯一入口，只占 1 个
+  prompt 名额，默认关会导致用户根本发现不了这套能力）。用户仍可在技能管理
+  界面手动关闭父技能。
+- iOS 侧（SkillStore.swift）本批不动：D1 明确「不动 iOS 同步路径」；
+  genre- / novel-writing 前缀已降低与用户手工导入撞名的概率（R8）。
+
+
+三、本地无法编译 —— CI 是唯一编译器
+------------------------------------------------------------
+本批 3 个 .kt 文件未在 local 编译验证：当前工作区没有 Android SDK /
+Gradle 工具链与目标工程的完整源码上下文（仅有上游 OpenMinis 源码可供参考）。
+因此语法与符号解析以 CI 编译为准；请团队在 CI 上跑：
+    :app:compileDebugKotlin
+    :app:testDebugUnitTest --tests "*SeedNovelSkillsTest"
+若 CI 报符号/签名错误，优先核对：
+  a) 项目包名是否确为 com.ai.assistance.quro（方案 §6：diff 仅 package 2 行）；
+  b) SkillRepository.Skill / ImportSource 的字段是否仍与上游 :176-190 一致；
+  c) seedNovelSkillsSafely() 是否确实放在 SkillRepository 类体内（需访问私有成员）。
+
+单测覆盖范围（SeedNovelSkillsTest.kt，9 例）：
+  1. 重复播种幂等：第二次调用返回 0、库内仍 26 条、守卫 key 落定；
+  2. 已存在技能不覆盖：预置一条「用户改过」的流派，播种后原值不变；
+  3. 守卫预置命中：整批跳过；
+  4. 25 个流派 id 全为 ASCII 且以 genre- 开头、与 id_map.json 完全一致、中文名保留；
+  5. slugify(中文名) 为空的反证（说明为何必须显式 id）；
+  6. 默认开关对照：25 流派 isEnabled=false、父技能 isEnabled=true，
+     setEnabled 调用参数逐项核对；
+  7. 父技能被播种且 9 个 references 的 assets 路径正确传给 copySiblingAssets；
+  8. frontmatter 的 description/version/body/importSource 透传正确；
+  9. R7：单个 asset 损坏时跳过该条且不落守卫，下次启动补齐剩余 1 条。
+共 9 个 @Test 方法。

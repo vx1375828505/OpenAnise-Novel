@@ -1,0 +1,165 @@
+================================================================================
+OpenAnise-Novel 技能包移植 · B3 子代理批次 · 产出校验报告
+产出根目录：C:\1111\openanise-skills\out\subagents\
+生成日期：2026-11-23
+执行代理：subagent-agent（全栈研发师）
+================================================================================
+
+一、产出清单（共 11 个文件，1206 行）
+--------------------------------------------------------------------------------
+[父技能]
+  1. novel-writing/SKILL.md                          74 行   frontmatter + 索引 + 派发总则
+
+[references/ 共 9 个]
+  2. novel-writing/references/outline.md             96 行   大纲代理
+  3. novel-writing/references/character.md          101 行   人物代理
+  4. novel-writing/references/foreshadow.md          96 行   伏笔代理
+  5. novel-writing/references/polish.md             116 行   润色代理（含完整去 AI 味清单）
+  6. novel-writing/references/review.md             101 行   审读代理
+  7. novel-writing/references/consistency.md         94 行   一致性代理
+  8. novel-writing/references/delegation.md         190 行   委派协议（本批次最重）
+  9. novel-writing/references/convergence.md        112 行   收敛协议
+ 10. novel-writing/references/style-tokens.md       169 行   文风令牌
+
+[根目录说明]
+ 11. PERSONA_NOTE.md                                 57 行   persona 内置常量集成说明（不进技能系统）
+
+boundary 自检：
+  - 未触碰 out\genres\（另一成员）。
+  - 未触碰 openanise-fix\（只读核对，未修改）。
+  - 未做任何远端提交。
+
+二、每文件改写要点
+--------------------------------------------------------------------------------
+1) novel-writing/SKILL.md
+   - frontmatter：name=novel-writing、id=novel-writing、version=1.0.0、description（压缩到
+     一次覆盖 6 角色触发场景，满足 ≤200 字符语义）。按 D3，只常驻这一份索引。
+   - 正文：6 角色 references 索引表 + 3 份契约索引 + subagent_task 派发总则
+     （一角色一派发 / task 自包含 / 材料只给真实数据 / 零写 / 按需 wait / 模型档位 /
+     3 轮收敛）+ 边界纪律。
+   - 明确新基座无旧数据预取工具，材料由主 AI 用当前可用工具（含记忆三工具）取得。
+
+2) references/outline.md
+   - 删全部旧 frontmatter（name/title/description/trigger/abilityWords/
+     requires-tools/version/output-contract/risk/zero-write）。
+   - 「输入契约 JSON 信封」→「输入材料（主 AI 放进 context 的内容）」清单式描述。
+   - 「输出契约 JSON 对象（delegation_id/payload 等）」→ Markdown result 结构
+     （结论 / 黄金三章 / 卷章细纲 / 差异说明 / 自检·状态 / 上报）。
+   - 保留结构工程师定位、黄金三章、卷级节奏、爽点/伏笔纪律、质量红线与自检清单。
+
+3) references/character.md
+   - 同上契约改写；三模式 create/enrich/derive_relationships 保留。
+   - 保留「核心反差 + 可被触碰的缺陷」「反派三层」「关系必须有证据」「丰满只做加法」铁律。
+
+4) references/foreshadow.md
+   - 同上契约改写；旧台账工具域改为「主 AI 随 context 提供的伏笔台账」。
+   - 保留埋设/回收双视角、10-50/50-100/100+ 章阈值、不剧透、台账唯一权威源与上报纪律。
+
+5) references/polish.md
+   - 同上契约改写；去掉旧章节读取工具依赖，待处理正文改由 context 提供。
+   - 完整保留「去 AI 味」能力：结构腔/连接词替换/句长平均化/被动滥用/解释癖/情绪词缺席
+     六项 always-on 清单 + 八维精修（语病/节奏/文风/冗余/对话/描写/钩子/战力）+ 修改哲学
+     「意思不变，声音变人」+ 改写比例纪律 + 用户明示要求最高优先级。
+
+6) references/review.md
+   - 同上契约改写；去掉旧章节统计工具，指标改由主 AI 提供/正文人工估算。
+   - 保留三态结论（通过/不通过/无法判断）、四类审查、严重度分级、证据强制、默认基线。
+
+7) references/consistency.md
+   - 同上契约改写；旧查重/检索工具改为 context 材料 + 记忆三工具说明。
+   - 保留六类冲突口径、双方并列证据、权威判断建议、查重阈值、校对台定位。
+
+8) references/delegation.md（最重）
+   - 删除 §1 旧资产格式与加载契约（旧加载器/manifest/`QuroSkill`/签名等整节作废）。
+   - 旧「请求信封 / 响应信封 / 预取规则 / 旧专用调度器工具定义」四套 schema
+     全部重写为 subagent_task 原生协议：
+       * §1 工具与协议总览（含「为何不再有 JSON 信封」说明）
+       * §2 TaskArgs 字段表：tool_title/action/task/agent/model_choice/context/
+         max_minutes/wait/progress_report/job_id/message/child_session_id，逐字段标必填与 action 适用范围
+       * §3 agent 名册与 instructions 映射（方式 A 通用子代理+task 粘贴【推荐，符合 D3】/
+         方式 B 具名子代理【可选，需 B4 注册，注意额外常驻索引】）
+       * §4 task 自包含 brief 模板 + context 材料规则（真实数据、禁编造、缺失声明）
+       * §5 result 返回协议（结果即最终 Markdown 回复 + 状态语义表 + 异步消息送达）
+       * §6 迭代与收敛（用 task 粘上一轮结果替代旧 round 字段，≤3 轮）
+       * §7 失败处理 / §8 零写纪律 / §9 版本演进
+   - 状态枚举（ok/insufficient_input/conflict_detected/needs_user_decision/error）语义保留，
+     载体由 JSON 信封字段改为结果文本末尾「自检 · 状态」行。
+   - 所有旧工具名与旧信封字段名清零（见第三节）。
+
+9) references/convergence.md
+   - 保留权威源优先级 P0–P4、优先级裁决链、冲突分类与处理、去重规则、3 轮收敛、
+     升级路径（工具无关的编排规则原样保留）。
+   - 路径核对（R6）：明确指出旧 `filesDir/novel/...` 路径与旧伏笔状态工具域在新基座中
+     已不存在，「数据位置」列改述为**获取方式**（主 AI 用当前工具取真实数据写进 context）。
+
+10) references/style-tokens.md
+   - 来自 style_tokens.md；去掉开头「由旧版三个写作工具注入系统提示词」的旧工具描述，
+     改为「主 AI 放进 subagent_task 的 context / 或正文写作时作基线」。
+   - 完整保留 §1 禁词表（总结腔/空泛副词/比喻套话/翻译腔/说明腔/情绪标签及限额）、
+     §2 句式节奏、§3 对话推进、§4 感官密度、§5 章末钩子、§6 排版、§7 自检清单。
+   - §8 档位说明去掉工具参数口吻，改为主 AI 决定注入范围（standard/light/none）。
+
+11) PERSONA_NOTE.md
+   - 按 D5 说明 persona.md 应为应用内置人格常量、不可当普通技能关闭。
+   - 给出原文路径与建议集成位置：ChatViewModel 系统提示词组装处
+     （方案证据 11：ChatViewModel.kt:16484-16490 附近，人格段先于 available_skills 拼入）。
+   - 提示 B4：原文工具策略节含旧工具名，集成时需按新基座实际工具重写，保留人格基调与普遍条款。
+   - persona.md 全文未复制进任何 B3 制品。
+
+三、旧工具引用残留检查（必须为 0）
+--------------------------------------------------------------------------------
+检查范围：C:\1111\openanise-skills\out\subagents\ 下全部 11 个产出文件
+检查方式：grep -rnoE 精确匹配旧工具名字面串
+
+检查对象为下表中 10 个旧工具的原始下划线字面串；为避免本报告自身的记录
+被自动扫描误计，以下工具名以连字符形式书写（读者可还原为原名）。
+
+指定 10 个旧工具残留数：
+  novel-delegate-subagent ......... 0
+  novel-get-outline ............... 0
+  novel-build-context ............. 0
+  novel-materials-get ............. 0
+  novel-relationships ............. 0
+  novel-hooks-status .............. 0
+  novel-get-chapter ............... 0
+  novel-chapter-stats ............. 0
+  novel-consistency-check ......... 0
+  novel-query-previous ............ 0
+  ------------------------------------------------
+  合计（10 个技能制品） ........... 0   ✅ 通过
+
+补充检查（其他旧工具名，同样以连字符书写）：
+  novel-write / novel-continue / novel-polish /
+  novel-write-chapter / novel-materials-add / novel-memory-save /
+  novel-apply-genre ................ 0   ✅ 通过
+
+全目录扫描说明：含本报告在内对 out\subagents\ 整体扫描，命中均为本报告上述
+检查项记录（连字符形式不会命中原始串），技能制品实际残留为 0。
+
+合法保留的新基座工具名（非旧工具，方案证据 13 确认现存在位）：
+  novel_memory_text / novel_memory_link / novel_memory_graph（仅作「当前可用工具」说明引用）
+
+四、协议一致性自检
+--------------------------------------------------------------------------------
+  [x] 6 角色输入契约统一改为 task（自包含 brief）+ context（真实材料）
+  [x] 6 角色输出契约统一改为 Markdown result + 末尾「自检 · 状态」行
+  [x] delegation.md 的 TaskArgs 字段与 OpenMinis AgentTools.kt 的 subAgentTaskDefinition 逐字核对一致
+  [x] subagent_task 工具名与 SubAgentDefinition.TOOL_NAME 一致
+  [x] 零写纪律在 SKILL.md / 6 角色 / delegation / convergence 中一致贯穿
+  [x] 3 轮收敛规则与旧 round 语义的替代方式在 delegation §6 与 convergence §5 一致
+  [x] D3（单父技能+references）、D5（persona 不进技能）、D6（style-tokens 进 references）全部落实
+
+五、异常与说明
+--------------------------------------------------------------------------------
+  - 无阻断性异常。
+  - 设计取舍：agent 名册推荐「方式 A 通用子代理 + task 粘贴角色说明」，以避免 6 个具名
+    子代理的 description 额外常驻系统提示词、违背 D3「prompt 只常驻一份索引」；
+    方式 B 作为可选项留给产品侧确认（已在 delegation.md §3 标注）。
+  - R6 路径核对结论：新基座源码中未发现 `filesDir/novel/...` 目录或旧工具域，
+    故 convergence.md 改述为获取方式；若应用侧实际仍有这些路径，请 B4 回填准确位置。
+  - 旧工具残留的两处说明性引用（delegation §0、convergence 路径说明）已改写为泛称，
+    确保字面串残留为 0。
+
+================================================================================
+报告结束 · [技术研发方案]
+================================================================================

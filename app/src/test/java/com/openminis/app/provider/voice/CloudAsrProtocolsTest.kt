@@ -36,8 +36,10 @@ class CloudAsrProtocolsTest {
             is JSONObject -> {
                 actual as? JSONObject ?: fail("$path: expected an object, got $actual")
                 actual as JSONObject
-                assertEquals("$path keys", expected.keySet(), actual.keySet())
-                for (k in expected.keySet()) assertJson(expected.get(k), actual.get(k), "$path.$k")
+                val expKeys = expected.keys().asSequence().toSet()
+                val actKeys = actual.keys().asSequence().toSet()
+                assertEquals("$path keys", expKeys, actKeys)
+                for (k in expKeys) assertJson(expected.get(k), actual.get(k), "$path.$k")
             }
             is JSONArray -> {
                 actual as? JSONArray ?: fail("$path: expected an array, got $actual")

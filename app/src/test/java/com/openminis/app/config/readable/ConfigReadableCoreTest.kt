@@ -1,6 +1,7 @@
 package com.ai.assistance.quro.config.readable
 
 import com.ai.assistance.quro.config.ConfigValue
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -234,7 +235,7 @@ class ConfigReadableCoreTest {
         assertEquals("groups:G1", decoded.subject)
         assertEquals("Models: added A; order changed", decoded.displayText { null })
         // Re-encoding yields the same structure.
-        assertEquals(JSONObject(ios).similar(JSONObject(decoded.jsonString())), true)
+        assertJsonEqual(JSONObject(ios), JSONObject(decoded.jsonString()))
     }
 
     @Test
@@ -250,4 +251,27 @@ class ConfigReadableCoreTest {
         assertTrue(ConfigReadable.notWritable.isGeneric)
         assertFalse(ConfigReadable(ConfigValueFormatter.Bool()).isGeneric)
     }
+
+    /** JVM org.json 没有 Android 的 similar();按结构递归比较,忽略 key 顺序。 */
+    private fun assertJsonEqual(a: Any?, b: Any?, path: String = "$") {
+        when (a) {
+            is JSONObject -> {
+                assertTrue("$path expected object", b is JSONObject)
+                val bo = b as JSONObject
+                assertEquals("$path length", a.length(), bo.length())
+                for (k in a.keys()) assertTrue("$path.$k", bo.has(k) && run {
+                    assertJsonEqual(a.get(k), bo.get(k), "$path.$k"); true
+                })
+            }
+            is JSONArray -> {
+                assertTrue("$path expected array", b is JSONArray)
+                val ba = b as JSONArray
+                assertEquals("$path length", a.length(), ba.length())
+                for (i in 0 until a.length()) assertJsonEqual(a.get(i), ba.get(i), "$path[$i]")
+            }
+            is Number -> assertEquals(path, a.toDouble(), (b as Number).toDouble(), 0.0)
+            else -> assertEquals(path, a, b)
+        }
+    }
+
 }

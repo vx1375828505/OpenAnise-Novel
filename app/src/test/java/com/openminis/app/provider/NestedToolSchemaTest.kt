@@ -166,7 +166,7 @@ class NestedToolSchemaTest {
         // (Android's does), so key order is covered by the golden test below,
         // which builds the old and new objects with the same put sequence.
         fun same(expected: String, actual: JSONObject) =
-            assertTrue("$actual", JSONObject(expected).similar(actual))
+            assertJsonEqual(JSONObject(expected), actual)
         val flat = AgentToolParam("string", "Scroll direction", enumValues = listOf("up", "down"))
         same("""{"type":"string","description":"Scroll direction","enum":["up","down"]}""", flat.toJson())
         same("""{"type":"STRING","description":"Scroll direction","enum":["up","down"]}""", flat.toGeminiJson())
@@ -208,4 +208,27 @@ class NestedToolSchemaTest {
         )
         assertTrue("nested text costs tokens: $withSchema vs $withoutSchema", withSchema > withoutSchema + 10)
     }
+
+    /** JVM org.json 没有 Android 的 similar();按结构递归比较,忽略 key 顺序。 */
+    private fun assertJsonEqual(a: Any?, b: Any?, path: String = "$") {
+        when (a) {
+            is JSONObject -> {
+                assertTrue("$path expected object", b is JSONObject)
+                val bo = b as JSONObject
+                assertEquals("$path length", a.length(), bo.length())
+                for (k in a.keys()) assertTrue("$path.$k", bo.has(k) && run {
+                    assertJsonEqual(a.get(k), bo.get(k), "$path.$k"); true
+                })
+            }
+            is JSONArray -> {
+                assertTrue("$path expected array", b is JSONArray)
+                val ba = b as JSONArray
+                assertEquals("$path length", a.length(), ba.length())
+                for (i in 0 until a.length()) assertJsonEqual(a.get(i), ba.get(i), "$path[$i]")
+            }
+            is Number -> assertEquals(path, a.toDouble(), (b as Number).toDouble(), 0.0)
+            else -> assertEquals(path, a, b)
+        }
+    }
+
 }
