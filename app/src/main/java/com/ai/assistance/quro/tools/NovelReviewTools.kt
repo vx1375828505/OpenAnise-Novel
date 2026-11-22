@@ -24,7 +24,7 @@ import java.io.File
  *  1. **契约层**：`QuroTool`（name/description/parametersJson/run，同步返回 String）
  *     → `AgentToolDefinition` + `execute(...): ToolExecutionResult`，`readOnly`/错误码 `GErr` 一族随之消失；
  *  2. **数据层**：`NovelRepository.fromContext(context)`（`work_id`/`chapter_id` + JSON 索引）
- *     → 纯文件项目目录，`project_path` + PRootKernel.resolveSessionHostPath，章节 = `03_正文/` 下的 .txt；
+ *     → 纯文件项目目录，`project_path` + PRootKernel.resolveSessionHostPath，章节 = `正文/` 下的 .txt（旧库回退 `03_正文/`）；
  *  3. **输出**：旧线返回 JSON 字符串 → 新基座工具一律返回人读文本（同 NovelTools），原 JSON 键名保留为可见小标题；
  *  4. **LLM 类工具**：旧线 `novel_title_candidates` 在工具内直连 `QuroLlmClient` 调模型；
  *     新基座工具执行体拿不到 provider（模型就是 agent 本身），故 `action=title` 改为

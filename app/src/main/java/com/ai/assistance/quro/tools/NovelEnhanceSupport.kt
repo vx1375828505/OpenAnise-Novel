@@ -13,7 +13,7 @@ import java.io.File
  *  - 「共享支撑对象」范式照旧线 `core/tools/novel/NovelWriteTools.kt` 的 `internal object NovelWriteSupport`
  *    （纯函数 + IO 助手，供同文件多个工具复用）；
  *  - 数据层从旧线 `NovelRepository`（`filesDir/novel/` + JSON 索引）换成 OpenMinis 的纯文件项目目录
- *    （`/var/minis/mounts/<作品>/`，章节为 `03_正文/第NNN章：标题.txt`）。
+ *    （`/var/minis/mounts/<作品>/`，章节为 `正文/第NNN章：标题.txt`；存量旧库回退 `03_正文/`）。
  *
  * 口径与 [NovelTools] 保持一致：同一批 public const val（DEFAULT_PROJECT / TEXT_DIR / RULE_DIR / BACKUP_DIR）、
  * 同一种按文件名数字的自然排序、同一种章节指认规则。因 NovelTools 的 `txtFiles` / `resolveChapter` /
@@ -45,7 +45,7 @@ internal object NovelEnhanceSupport {
         return (m?.groupValues?.get(1)?.toIntOrNull() ?: 99999) to name
     }
 
-    /** `03_正文/` 下的章节 .txt，按（编号, 文件名）两键自然排序；同 NovelTools.txtFiles。 */
+    /** `正文/` 下的章节 .txt（存量旧库回退 `03_正文/`），按（编号, 文件名）两键自然排序；同 NovelTools.txtFiles。 */
     fun chapterFiles(projectDir: File): List<File> {
         val dir = NovelTools.resolveDir(projectDir, NovelTools.TEXT_DIR)
         if (!dir.isDirectory) return emptyList()
@@ -83,7 +83,7 @@ internal object NovelEnhanceSupport {
             .take(lastN)
             .reversed()
 
-    /** 规则文件候选位置：`01_项目中枢/` 及其四个子目录（口径同 NovelTools.readRule）。 */
+    /** 规则文件候选位置：`项目中枢/`（存量旧库回退 `01_项目中枢/`）及其子目录（口径同 NovelTools.readRule）。 */
     fun ruleCandidates(projectDir: File, ruleName: String): List<File> {
         val ruleDir = NovelTools.resolveDir(projectDir, NovelTools.RULE_DIR)
         val candidates = mutableListOf(File(ruleDir, ruleName))
