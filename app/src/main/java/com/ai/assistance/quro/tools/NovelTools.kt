@@ -18,9 +18,35 @@ import java.io.File
 object NovelTools {
     const val NAME = "novel_write"
     const val DEFAULT_PROJECT = "/var/minis/mounts/小说/小说项目"
-    const val TEXT_DIR = "03_正文"
-    const val RULE_DIR = "01_项目中枢"
-    const val BACKUP_DIR = "05_草稿"
+    /** 目录名：优先无序号（novel-project 模板），回退带序号（存量项目，如 03_正文/）。 */
+    const val TEXT_DIR = "正文"
+    const val RULE_DIR = "项目中枢"
+    const val BACKUP_DIR = "草稿"
+
+    private const val TEXT_DIR_LEGACY = "03_正文"
+    private const val RULE_DIR_LEGACY = "01_项目中枢"
+    private const val BACKUP_DIR_LEGACY = "05_草稿"
+
+    /**
+     * 解析项目下的标准目录：先找无序号（新模板），再回落带序号（旧库 / 存量项目）。
+     * 两套目录并存时以无序号为准；都不存在则返回无序号路径，供错误信息展示。
+     *
+     * 为什么需要它：novel-project 模板建出的库是无序号的（正文/项目中枢/草稿），
+     * 而 2026-11 之前建的存量项目是带序号的（03_正文/01_项目中枢/05_草稿）。
+     * 只认一种会让另一类项目直接失效。
+     */
+    fun resolveDir(project: File, dirName: String): File {
+        val primary = File(project, dirName)
+        if (primary.isDirectory) return primary
+        val legacyName = when (dirName) {
+            TEXT_DIR -> TEXT_DIR_LEGACY
+            RULE_DIR -> RULE_DIR_LEGACY
+            BACKUP_DIR -> BACKUP_DIR_LEGACY
+            else -> return primary
+        }
+        val legacy = File(project, legacyName)
+        return if (legacy.isDirectory) legacy else primary
+    }
 
     private val ACTIONS = listOf("list", "read", "write", "search", "stats", "rule", "backup")
 
@@ -29,7 +55,7 @@ object NovelTools {
         description = "小说写作工具：操作挂载目录下的纯文本章节（第NNN章：标题.txt）。" +
             "action=list 列出全部章节；read 读取章节；write 把 content_file 写入章节（覆盖前先确认）；" +
             "search 全文搜索关键词（一致性检查辅助）；stats 统计章数/字数；rule 读取写作规则文件；" +
-            "backup 把章节备份到 05_草稿/（规则.1 铁律：改前必做）。",
+            "backup 把章节备份到 草稿/（兼容 05_草稿/）（规则.1 铁律：改前必做）。",
         parameters = mapOf(
             "tool_title" to AgentToolParam("string", "A concise 5-10 word summary of what this tool call does, shown to the user. Use the same language as the user."),
             "action" to AgentToolParam("string", "Operation to perform", enumValues = ACTIONS),
@@ -69,7 +95,7 @@ object NovelTools {
         }
     }
 
-    private fun textDir(project: File): File = File(project, TEXT_DIR)
+    private fun textDir(project: File): File = resolveDir(project, TEXT_DIR)
 
     private fun naturalKey(name: String): Pair<Int, String> {
         val m = Regex("(\\d+)").find(name)
@@ -180,7 +206,7 @@ object NovelTools {
     private fun readRule(args: JSONObject, project: File, toolTitle: String): ToolExecutionResult {
         val ruleName = args.optString("rule_name", "").trim()
         if (ruleName.isBlank()) return ToolExecutionResult("Error: rule 需要 rule_name 参数", false, toolTitle = toolTitle)
-        val ruleDir = File(project, RULE_DIR)
+        val ruleDir = resolveDir(project, RULE_DIR)
         val subDirs = listOf("写文规则", "文章精修规则", "禁则", "逻辑判断")
         val candidates = mutableListOf(File(ruleDir, ruleName))
         for (sub in subDirs) candidates.add(File(ruleDir, "$sub/$ruleName"))
@@ -192,7 +218,7 @@ object NovelTools {
     private fun backupChapter(args: JSONObject, project: File, toolTitle: String): ToolExecutionResult {
         val chapter = resolveChapter(args, project, toolTitle)
             ?: return ToolExecutionResult("Error: 找不到章节 '${args.optString("chapter", "")}'", false, toolTitle = toolTitle)
-        val backupDir = File(project, BACKUP_DIR)
+        val backupDir = resolveDir(project, BACKUP_DIR)
         backupDir.mkdirs()
         val stamp = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
             .format(java.time.LocalDateTime.now())

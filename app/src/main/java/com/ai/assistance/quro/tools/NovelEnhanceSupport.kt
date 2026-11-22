@@ -47,7 +47,7 @@ internal object NovelEnhanceSupport {
 
     /** `03_正文/` 下的章节 .txt，按（编号, 文件名）两键自然排序；同 NovelTools.txtFiles。 */
     fun chapterFiles(projectDir: File): List<File> {
-        val dir = File(projectDir, NovelTools.TEXT_DIR)
+        val dir = NovelTools.resolveDir(projectDir, NovelTools.TEXT_DIR)
         if (!dir.isDirectory) return emptyList()
         return dir.listFiles()?.filter { it.isFile && it.name.endsWith(".txt") }
             ?.sortedWith(compareBy({ naturalKey(it.name).first }, { naturalKey(it.name).second }))
@@ -85,7 +85,7 @@ internal object NovelEnhanceSupport {
 
     /** 规则文件候选位置：`01_项目中枢/` 及其四个子目录（口径同 NovelTools.readRule）。 */
     fun ruleCandidates(projectDir: File, ruleName: String): List<File> {
-        val ruleDir = File(projectDir, NovelTools.RULE_DIR)
+        val ruleDir = NovelTools.resolveDir(projectDir, NovelTools.RULE_DIR)
         val candidates = mutableListOf(File(ruleDir, ruleName))
         for (sub in RULE_SUBDIRS) candidates.add(File(ruleDir, "$sub/$ruleName"))
         return candidates
@@ -100,7 +100,7 @@ internal object NovelEnhanceSupport {
      * 由模型自己选一个再次调用 —— 不替模型猜一个默认规则文件。
      */
     fun listRuleFiles(projectDir: File, limit: Int = 20): List<String> {
-        val ruleDir = File(projectDir, NovelTools.RULE_DIR)
+        val ruleDir = NovelTools.resolveDir(projectDir, NovelTools.RULE_DIR)
         val root = ruleDir.listFiles() ?: return emptyList()
         val out = mutableListOf<String>()
         for (f in root.sortedBy { it.name }) {

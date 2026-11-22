@@ -249,7 +249,7 @@ object NovelPolishTools {
         }
 
         // 可逆性保证：先备份原稿，备份失败则中止（不写半截状态）。
-        val backupDir = File(projectDir, NovelTools.BACKUP_DIR)
+        val backupDir = NovelTools.resolveDir(projectDir, NovelTools.BACKUP_DIR)
         val stamp = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
             .format(java.time.LocalDateTime.now())
         val backupName = "${chapter.nameWithoutExtension}_润色前_${stamp}.txt"
