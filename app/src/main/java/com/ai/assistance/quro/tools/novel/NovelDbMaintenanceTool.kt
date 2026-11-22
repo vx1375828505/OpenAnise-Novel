@@ -27,7 +27,7 @@ import java.util.Locale
  * 两条与 [NovelGraphTools] 一致的硬约束：**改前必备份**（备份失败即中止），
  * **所有 IO 用 runCatching**（失败返回错误结果，不抛异常）。
  *
- * 路径解析走 [PRootKernel.resolveHostPath]，不接收 sessionId 与 Context。
+ * 项目根解析走 [NovelGraphTools.resolveProjectDir]（与 NovelGraphTools 共用），不接收 sessionId 与 Context。
  */
 object NovelDbMaintenanceTool {
     const val NAME = "novel_db_maintenance"
@@ -110,7 +110,10 @@ object NovelDbMaintenanceTool {
             )
         }
         val projectDir = resolveDir(projectPath)
-            ?: return ToolExecutionResult("Error: 无法解析项目路径：$projectPath", false, toolTitle = toolTitle)
+            ?: return ToolExecutionResult(
+                "Error: 项目路径无法解析（请确认挂载可用）：$projectPath",
+                false, toolTitle = toolTitle,
+            )
         if (!projectDir.isDirectory) {
             return ToolExecutionResult("Error: 项目目录不存在：$projectPath", false, toolTitle = toolTitle)
         }
@@ -518,6 +521,15 @@ object NovelDbMaintenanceTool {
     /** 反引号里的 .md 引用，死链判定只认这种显式写法。 */
     private val BACKTICK_MD = Regex("""`([^`\n]+?\.md)`""")
 
+    /**
+     * 死链判定跳过的文件名：`_文件夹说明.md` 是历史说明、`GLOBAL.md` 是 055 明文写着的
+     * App 层副本——它们本来就不（也不该）在项目目录里，判死链是纯误报。
+     */
+    private val DEADLINK_SKIP_NAMES = setOf("_文件夹说明.md", "GLOBAL.md")
+
+    /** 命名规范示例（`NNN_名称.md`、`NNN_规则.Nx（中文说明）.md`）不是真引用。 */
+    private const val DEADLINK_EXAMPLE_PREFIX = "NNN_"
+
     private fun scan(projectDir: File): Scan {
         val files = projectDir.walkTopDown()
             .filter { it.isFile && it.extension.equals("md", ignoreCase = true) }
@@ -527,18 +539,35 @@ object NovelDbMaintenanceTool {
         val names = files.map { it.name }.toSet()
         val texts = files.associateWith { f -> runCatching { f.readText(Charsets.UTF_8) }.getOrDefault("") }
 
-        // 孤儿：该文件名没有出现在任何其他文件的正文里
+        // 孤儿：该文件的**相对路径**没有出现在任何其他文件的正文里。
+        // 只按 basename 判会让 17 个 `000__子路由.md` 互相顶包（一个被引用，其余 16 个跟着不算孤儿），
+        // 所以同名文件各自独立判定：路径式引用精确记账；裸文件名只有「全库唯一」或
+        // 「与引用者同目录」时才记账。
+        val rels = files.map { relativePath(projectDir, it) }
+        val relSet = rels.toSet()
+        val byBase = files.groupBy { it.name }
         val referenced = mutableSetOf<String>()
         for ((f, text) in texts) {
+            val selfRel = relativePath(projectDir, f)
+            val selfDir = selfRel.substringBeforeLast('/', "")
             for (m in MD_MENTION.findAll(text)) {
-                val token = m.value
-                val base = token.substringAfterLast('/')
-                if (base == f.name) continue
-                if (base in names) referenced.add(base)
+                val token = m.value.trim()
+                if (token.isEmpty()) continue
+                if (token.contains('/')) {
+                    val hits = if (token in relSet) listOf(token) else rels.filter { it.endsWith("/$token") }
+                    for (h in hits) if (h != selfRel) referenced.add(h)
+                } else {
+                    val same = byBase[token].orEmpty().map { relativePath(projectDir, it) }
+                    val credits = when {
+                        same.size == 1 -> same
+                        same.size > 1 -> same.filter { it.substringBeforeLast('/', "") == selfDir }
+                        else -> emptyList()
+                    }
+                    for (h in credits) if (h != selfRel) referenced.add(h)
+                }
             }
         }
-        val orphans = files.filter { it.name !in referenced }
-            .map { relativePath(projectDir, it) }
+        val orphans = rels.filter { it !in referenced }
             .filterNot { rel -> ORPHAN_EXEMPT_PREFIXES.any { rel.startsWith(it) } }
 
         // 死链：反引号引用的 .md 目标不存在
@@ -548,13 +577,20 @@ object NovelDbMaintenanceTool {
             for (m in BACKTICK_MD.findAll(text)) {
                 val raw = m.groupValues[1].trim()
                 if (raw.isEmpty()) continue
+                // 绝对路径（/var/minis/...、/tmp/...）不在项目内，按项目相对路径判必然「不存在」。
+                if (raw.startsWith("/")) continue
                 if (raw.contains("{{") || raw.contains("}}")) continue
                 if (raw.contains(".trashed")) continue
-                val base = raw.substringAfterLast('/')
+                // 含 `..` 的写法不判（归一化后可能指向项目外，判不清就别报）。
+                if (raw.contains("..")) continue
+                val relRef = normalizeRelRef(raw)
+                val base = relRef.substringAfterLast('/')
                 if (base.startsWith(DEPRECATED_PREFIX)) continue
+                if (base in DEADLINK_SKIP_NAMES) continue
+                if (base.startsWith(DEADLINK_EXAMPLE_PREFIX)) continue
                 if (raw.contains(' ') || raw.contains('*') || raw.contains('?')) continue
-                val exists = if (raw.contains('/')) {
-                    File(projectDir, raw).exists() || File(f.parentFile, raw).exists()
+                val exists = if (relRef.contains('/')) {
+                    File(projectDir, relRef).exists() || File(f.parentFile, relRef).exists()
                 } else {
                     base in allNames
                 }
@@ -565,6 +601,15 @@ object NovelDbMaintenanceTool {
     }
 
     // ── 公共小工具 ──────────────────────────────────────────────────────────
+
+    /** 相对引用归一化：去掉 `./`、合并重复 `/`；异常时退回原串（不因此把引用判死）。 */
+    private fun normalizeRelRef(raw: String): String {
+        val t = raw.trim()
+        val viaPath = runCatching {
+            java.nio.file.Paths.get(t).normalize().toString().replace('\\', '/')
+        }.getOrNull()
+        return (viaPath ?: t).removePrefix("./")
+    }
 
     private fun payloadOf(args: JSONObject): JSONObject? {
         (args.opt("payload") as? JSONObject)?.let { return it }
@@ -599,11 +644,8 @@ object NovelDbMaintenanceTool {
         return rel.replace(File.separatorChar, '/')
     }
 
-    private fun resolveDir(projectPath: String): File? {
-        val resolved = runCatching { PRootKernel.resolveHostPath(projectPath) }.getOrNull()
-        if (resolved != null) return resolved
-        return if (projectPath.startsWith("/")) File(projectPath) else null
-    }
+    /** 项目根解析与 [NovelGraphTools] 共用：解析不出来就拒绝，不回退到裸绝对路径。 */
+    private fun resolveDir(projectPath: String): File? = NovelGraphTools.resolveProjectDir(projectPath)
 
     private fun resolveProjectFile(projectDir: File, fileArg: String): File? = when {
         fileArg.startsWith("/") -> runCatching { PRootKernel.resolveHostPath(fileArg) }.getOrNull()

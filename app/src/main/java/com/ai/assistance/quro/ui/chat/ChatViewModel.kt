@@ -934,6 +934,9 @@ class ChatViewModel(
      */
     private val turnApprovals = mutableSetOf<String>()
 
+    /** [T-novel-write-gate] 确认句里的绝对路径（到空白或中文标点为止）。 */
+    private val PATH_IN_TEXT = Regex("""/[^\s，。；、)）"'`]+""")
+
     /** [T-port-user-ask-recovery] Persistence + recovery hooks; idempotent. */
     private fun ensureUserAskRecovery() {
         com.ai.assistance.quro.agent.userask.UserAskRecoveryCoordinator.ensureInstalled(
@@ -14329,7 +14332,15 @@ class ChatViewModel(
                 if (idx < 0 || idx >= questions.length()) continue
                 val question = questions.optJSONObject(idx)?.optString("question", "")?.trim()
                 if (!question.isNullOrEmpty()) {
-                    synchronized(turnApprovals) { turnApprovals.add(question) }
+                    synchronized(turnApprovals) {
+                        // 整句保留（兼容旧记录），同时抽出句中的绝对路径：
+                        // 硬门按路径前缀判定，只有整句时永远匹配不上，用户每写一个文件都要重批一次。
+                        turnApprovals.add(question)
+                        for (m in PATH_IN_TEXT.findAll(question)) {
+                            val p = m.value.trimEnd('，', '。', '；', '、', '）', ')', '」', '』', '"', '\'', '`')
+                            if (p.length > 1) turnApprovals.add(p)
+                        }
+                    }
                 }
             }
         }

@@ -8303,20 +8303,24 @@ fun ChatScreen(
         NovelProjectPresetSheet(
             onDismiss = { showNovelProjectSheet = false },
             onCreate = { skillId, title, genre, platform, hero, targetDir ->
-                viewModel.setInputText(
-                    buildString {
-                        append("用 /").append(skillId).append(" 预设开新书。\n")
-                        append("书名：《").append(title).append("》\n")
-                        append("流派：").append(genre.ifBlank { "未定" }).append("\n")
-                        append("平台：").append(platform.ifBlank { "未定" }).append("\n")
-                        append("男主：").append(hero.ifBlank { "未定" }).append("\n")
-                        append("目标目录：").append(targetDir).append("\n")
-                        append("\n")
-                        append("请直接出建库清单（目录 + 关键文件 + 目标路径）用 user_ask(confirm) 等我确认；")
-                        append("确认后用 scripts/init_project.py 一次建好，再报“还需手工填哪些占位符”。")
-                        append("不要重复问我上面已给的信息。")
-                    },
-                )
+                val instruction = buildString {
+                    append("用 /").append(skillId).append(" 预设开新书。\n")
+                    append("书名：《").append(title).append("》\n")
+                    append("流派：").append(genre.ifBlank { "未定" }).append("\n")
+                    append("平台：").append(platform.ifBlank { "未定" }).append("\n")
+                    append("男主：").append(hero.ifBlank { "未定" }).append("\n")
+                    append("目标目录：").append(targetDir).append("\n")
+                    append("\n")
+                    append("请直接出建库清单（目录 + 关键文件 + 目标路径）用 user_ask(confirm) 等我确认；")
+                    append("确认后用 scripts/init_project.py 一次建好，再报“还需手工填哪些占位符”。")
+                    append("不要重复问我上面已给的信息。")
+                }
+                // 输入框已有草稿时追加，不静默覆盖（[T-android-append-to-input-eats-draft] 的同类事故）。
+                if (viewModel.inputText.value.isBlank()) {
+                    viewModel.setInputText(instruction)
+                } else {
+                    viewModel.appendToInputText("\n\n$instruction")
+                }
             },
             onOpenFolder = onBrowseChatFolder,
             presets = novelPresets,

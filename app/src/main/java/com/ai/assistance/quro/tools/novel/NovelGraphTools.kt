@@ -150,7 +150,10 @@ object NovelGraphTools {
         }
 
         val projectDir = resolveProjectDir(projectPath)
-            ?: return ToolExecutionResult("Error: 无法解析项目路径：$projectPath", false, toolTitle = toolTitle)
+            ?: return ToolExecutionResult(
+                "Error: 项目路径无法解析（请确认挂载可用）：$projectPath",
+                false, toolTitle = toolTitle,
+            )
         if (!projectDir.isDirectory) {
             return ToolExecutionResult("Error: 项目目录不存在：$projectPath", false, toolTitle = toolTitle)
         }
@@ -226,7 +229,10 @@ object NovelGraphTools {
             )
 
         val projectDir = resolveProjectDir(projectPath)
-            ?: return ToolExecutionResult("Error: 无法解析项目路径：$projectPath", false, toolTitle = toolTitle)
+            ?: return ToolExecutionResult(
+                "Error: 项目路径无法解析（请确认挂载可用）：$projectPath",
+                false, toolTitle = toolTitle,
+            )
         if (!projectDir.isDirectory) {
             return ToolExecutionResult("Error: 项目目录不存在：$projectPath", false, toolTitle = toolTitle)
         }
@@ -257,14 +263,14 @@ object NovelGraphTools {
     }
 
     /**
-     * `/var/minis/...` 路径按挂载表落到宿主文件系统（与 NovelTools 同一套解析），
-     * 已是宿主绝对路径则直接用。解析不出来返回 null。
+     * 项目根解析（**NovelGraphTools 与 NovelDbMaintenanceTool 共用**，别再各写一份）。
+     *
+     * `/var/minis/...` 按挂载表落到宿主文件系统（与 NovelTools 同一套解析）。
+     * 解析不出来就返回 null，由调用方拒绝——**不再回退到裸 File(projectPath)**：
+     * 挂载没起来时回退等于让工具在任意绝对路径（比如 /sdcard/…）上写报告。
      */
-    private fun resolveProjectDir(projectPath: String): File? {
-        val resolved = runCatching { PRootKernel.resolveHostPath(projectPath) }.getOrNull()
-        if (resolved != null) return resolved
-        return if (projectPath.startsWith("/")) File(projectPath) else null
-    }
+    internal fun resolveProjectDir(projectPath: String): File? =
+        runCatching { PRootKernel.resolveHostPath(projectPath) }.getOrNull()
 
     /**
      * 同一分钟内连写两次时，第二次的备份不能覆盖第一次的（备份的意义就是留旧值），

@@ -64,8 +64,10 @@ fun NovelProjectPresetSheet(
     onOpenFolder: ((String) -> Unit)? = null,
     presets: List<SkillRepository.Skill> = emptyList(),
 ) {
-    // 只认 novel- 前缀的预设；按名字排一遍，保证每次打开顺序一致（仓库里 skills 的顺序随安装时间变）。
-    val novelPresets = presets.filter { it.id.startsWith("novel-") }.sortedBy { it.name }
+    // 只认 novel-project 这一个预设。不能只判 `novel-` 前缀——父技能 novel-writing
+    // 也是 novel- 开头，会被误列成「新建小说项目」的预设。
+    // 按名字排一遍，保证每次打开顺序一致（仓库里 skills 的顺序随安装时间变）。
+    val novelPresets = presets.filter { it.id == "novel-project" }.sortedBy { it.name }
 
     // 0 = 选预设，1 = 填表，2 = 已生成指令
     var step by remember { mutableStateOf(0) }
