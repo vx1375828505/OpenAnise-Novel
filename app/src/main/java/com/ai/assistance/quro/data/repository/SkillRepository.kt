@@ -238,6 +238,12 @@ class SkillRepository(private val context: Context) {
         runCatching { installBundledNovelPreset() }.onFailure {
             Log.e(TAG, "installBundledNovelPreset failed — continuing: ${it.message}", it)
         }
+        // [T-novel-skill-seed] 内置小说技能（25 流派 + novel-writing 父技能）播种。
+        // 放在 installBundledNovelPreset 之后：先把 novel-project 预设展开成技能，
+        // 再补齐其余小说技能，两者互不覆盖（id 不同）。
+        runCatching { seedNovelSkillsSafely() }.onFailure {
+            Log.e(TAG, "seedNovelSkillsSafely failed — continuing: ${it.message}", it)
+        }
         startReloadWorker()
     }
 
@@ -1277,7 +1283,8 @@ class SkillRepository(private val context: Context) {
     /**
      * 首次启动把 assets/novel-preset/ 展开为内置技能「novel-project」。
      *
-     * 这是"小说项目库预设"的落地：模板 113 个文件 + SKILL.md + 3 个脚本
+     * 这是"小说项目库预设"的落地：模板 113 个文件 + SKILL.md + 4 个脚本
+     * （init_project.py / make_diff.py / make_diff_fuzzy.py / project_read.py）
      * 全部复制到 skillsDir/novel-project/，AI 通过 skill 机制 read SKILL.md 后，
      * 可直接 file_read 使用 template/ 与 scripts/，无需联网导入。
      *
@@ -1320,6 +1327,73 @@ class SkillRepository(private val context: Context) {
         for (child in children) {
             copyAssetTree("$assetPath/$child", File(dest, child))
         }
+    }
+
+    /**
+     * [T-novel-skill-seed] 播种内置小说技能：25 个流派技能 + 1 个 novel-writing
+     * 父技能，资产在 `assets/skills-novel/<id>/SKILL.md`。
+     *
+     * 与 [installBundledNovelPreset] 的关系：两者各播各的，互不干扰 ——
+     * 前者展开「小说项目库预设」(id=novel-project)，本方法铺 26 个写作技能；
+     * id 命名空间不同，谁都不会覆盖谁。
+     *
+     * 幂等由两层保证：
+     *  1. 一次性守卫 SharedPreferences（`builtin_novel_skills_v2`）：整轮成功才落 key，
+     *     资产读取/解析有失败时**不落** key，下次启动续种缺失的那几条；
+     *  2. 逐条 id 判重（[NovelSkillSink.contains]）：库里已有同 id 就跳过，
+     *     用户自己改过的技能绝不会被覆盖。
+     *
+     * 失败语义（R7）：播种器内部整体 try-catch 且不外抛，这里再包一层
+     * runCatching —— SkillRepository 构造期任何异常外溢都会让 Application
+     * 永久损坏（GH#147）。
+     */
+    private fun seedNovelSkillsSafely() {
+        val prefs = context.getSharedPreferences(NovelSkillGuard.PREFS_NAME, Context.MODE_PRIVATE)
+        seedBuiltinNovelSkills(
+            sink = object : NovelSkillSink {
+                override fun contains(id: String): Boolean = _skills.value.any { it.id == id }
+
+                override fun insert(skill: Skill) {
+                    // §4.5 手写通道：不能走 add()（它用 slugify(name)，中文名归一化后是空串会被拒）
+                    insertDb(skill)
+                    writeSkillMd(skill)
+                    mutateSkills { list -> list + skill }
+                }
+
+                override fun copySiblingAssets(id: String, assetPaths: List<String>) {
+                    val targetDir = File(skillsDir, id)
+                    for (path in assetPaths) {
+                        val relative = path.removePrefix("${NovelSkillGuard.ASSET_ROOT}/$id/")
+                        val dest = File(targetDir, relative)
+                        if (dest.exists()) continue       // 用户改过的 references 不覆盖
+                        dest.parentFile?.mkdirs()
+                        context.assets.open(path).use { input ->
+                            FileOutputStream(dest).use { out -> input.copyTo(out) }
+                        }
+                    }
+                }
+
+                override fun setEnabled(id: String, enabled: Boolean) {
+                    this@SkillRepository.setEnabled(id, enabled)
+                }
+            },
+            guardStore = object : NovelSkillGuardStore {
+                override fun getBoolean(key: String, defaultValue: Boolean): Boolean =
+                    prefs.getBoolean(key, defaultValue)
+
+                override fun putBoolean(key: String, value: Boolean) {
+                    prefs.edit().putBoolean(key, value).apply()
+                }
+            },
+            assetReader = { path ->
+                context.assets.open(path).bufferedReader().use { it.readText() }
+            },
+            parseSkillMd = { content ->
+                SkillRepository.parseSkillMd(content)
+                    ?.let { NovelParsedSkill(it.description, it.version, it.body) }
+            },
+            log = { msg -> Log.i(TAG, msg) },
+        )
     }
 
     // -- Reload --
